@@ -7,16 +7,28 @@ import (
 	"log"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 
 	"github.com/gorilla/mux"
 	_ "github.com/mattn/go-sqlite3"
 )
 
-func TestCreateUser(t *testing.T) {
+func TestMain(m *testing.M) {
+	// Set up
 	db = initTestDB()
-	defer db.Close()
+	ipPool = NewIPPool()
 
+	// Run tests
+	code := m.Run()
+
+	// Tear down
+	db.Close()
+
+	os.Exit(code)
+}
+
+func TestCreateUser(t *testing.T) {
 	requestBody := []byte(`{"username":"test@example.com","password":"testpassword"}`)
 	req, err := http.NewRequest("POST", "/users", bytes.NewBuffer(requestBody))
 	if err != nil {
@@ -44,9 +56,6 @@ func TestCreateUser(t *testing.T) {
 }
 
 func TestGetUsers(t *testing.T) {
-	db = initTestDB()
-	defer db.Close()
-
 	req, err := http.NewRequest("GET", "/users", nil)
 	if err != nil {
 		t.Fatal(err)
@@ -67,15 +76,12 @@ func TestGetUsers(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if len(response) != 0 {
-		t.Errorf("handler returned unexpected number of users: got %v want %v", len(response), 0)
+	if len(response) != 1 {
+		t.Errorf("handler returned unexpected number of users: got %v want %v", len(response), 1)
 	}
 }
 
 func TestCreateWorkspace(t *testing.T) {
-	db = initTestDB()
-	defer db.Close()
-
 	requestBody := []byte(`{"name":"testworkspace","user_id":1}`)
 	req, err := http.NewRequest("POST", "/workspaces", bytes.NewBuffer(requestBody))
 	if err != nil {
@@ -103,9 +109,6 @@ func TestCreateWorkspace(t *testing.T) {
 }
 
 func TestGetWorkspaces(t *testing.T) {
-	db = initTestDB()
-	defer db.Close()
-
 	req, err := http.NewRequest("GET", "/workspaces", nil)
 	if err != nil {
 		t.Fatal(err)
@@ -126,15 +129,12 @@ func TestGetWorkspaces(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if len(response) != 0 {
-		t.Errorf("handler returned unexpected number of workspaces: got %v want %v", len(response), 0)
+	if len(response) != 1 {
+		t.Errorf("handler returned unexpected number of workspaces: got %v want %v", len(response), 1)
 	}
 }
 
 func TestCreateApp(t *testing.T) {
-	db = initTestDB()
-	defer db.Close()
-
 	requestBody := []byte(`{"name":"testapp","description":"Test app","git_hash":"abcdef","ip_port":"10.0.0.1:8080","endpoint":"/api","version":"1.0","workspace_id":1}`)
 	req, err := http.NewRequest("POST", "/apps", bytes.NewBuffer(requestBody))
 	if err != nil {
@@ -162,9 +162,6 @@ func TestCreateApp(t *testing.T) {
 }
 
 func TestGetApps(t *testing.T) {
-	db = initTestDB()
-	defer db.Close()
-
 	req, err := http.NewRequest("GET", "/apps", nil)
 	if err != nil {
 		t.Fatal(err)
@@ -185,8 +182,8 @@ func TestGetApps(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if len(response) != 0 {
-		t.Errorf("handler returned unexpected number of apps: got %v want %v", len(response), 0)
+	if len(response) != 1 {
+		t.Errorf("handler returned unexpected number of apps: got %v want %v", len(response), 1)
 	}
 }
 

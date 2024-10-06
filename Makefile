@@ -7,7 +7,7 @@ GOCLEAN=$(GOCMD) clean
 GOTEST=$(GOCMD) test
 GOGET=$(GOCMD) get
 GOMOD=$(GOCMD) mod
-BINARY_NAME=discovery-service
+BINARY_NAME=micro-discover
 BINARY_UNIX=$(BINARY_NAME)_unix
 
 # Main package path
@@ -46,7 +46,7 @@ build-linux:
 	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 $(GOBUILD) -o $(BINARY_UNIX) -v $(MAIN_PACKAGE)
 
 docker-build:
-	docker build -t discovery-service .
+	docker build -t micro-discover .
 
 # Database operations
 db-create:
