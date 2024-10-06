@@ -24,8 +24,8 @@ The Discovery Service is a Go-based application designed to manage users, worksp
 1. Clone the repository:
 
    ```
-   git clone https://github.com/yourusername/discovery-service.git
-   cd discovery-service
+   git clone https://github.com/yourusername/micro-discover.git
+   cd micro-discover
    ```
 
 2. Install dependencies:
@@ -38,7 +38,7 @@ The Discovery Service is a Go-based application designed to manage users, worksp
 
 3. Build the application:
    ```
-   go build -o discovery-service
+   go build -o micro-discover
    ```
 
 ## Usage
@@ -46,7 +46,7 @@ The Discovery Service is a Go-based application designed to manage users, worksp
 1. Start the service:
 
    ```
-   ./discovery-service
+   ./micro-discover
    ```
 
    The service will start on port 8080 and create a SQLite database file named `discovery.db` in the same directory.
@@ -126,6 +126,7 @@ curl -X POST http://localhost:8080/users -H "Content-Type: application/json" -d 
 ```
 
 Response:
+
 ```json
 {
   "id": 1,
@@ -140,6 +141,7 @@ curl -X POST http://localhost:8080/workspaces -H "Content-Type: application/json
 ```
 
 Response:
+
 ```json
 {
   "id": 1,
@@ -157,6 +159,7 @@ curl -X POST http://localhost:8080/apps -H "Content-Type: application/json" -d '
 ```
 
 Response:
+
 ```json
 {
   "id": 1,
@@ -177,6 +180,7 @@ curl http://localhost:8080/users
 ```
 
 Response:
+
 ```json
 [
   {
@@ -193,6 +197,7 @@ curl http://localhost:8080/workspaces
 ```
 
 Response:
+
 ```json
 [
   {
@@ -212,6 +217,7 @@ curl http://localhost:8080/apps
 ```
 
 Response:
+
 ```json
 [
   {
