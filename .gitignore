@@ -1,3 +1,4 @@
 .env
 .env.local
 discovery-service
+./discovery.db
