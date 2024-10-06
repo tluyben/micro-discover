@@ -188,7 +188,9 @@ func TestMain(m *testing.M) {
 }
 
 func initTestDB() *sql.DB {
-	db, err := sql.Open("sqlite3", ":memory:")
+	os.Remove("./testdiscovery.db")
+
+	db, err := sql.Open("sqlite3", "./testdiscovery.db")
 	if err != nil {
 		log.Fatal(err)
 	}
