@@ -326,7 +326,7 @@ func getWorkspaces(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-	initDB()
+	initDB("./discovery.db")
 	defer db.Close()
 
 	ipPool = NewIPPool()
@@ -469,40 +469,41 @@ func getApp(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(app)
 }
 
-func initDB() {
-	var err error
-	db, err = sql.Open("sqlite3", "./discovery.db")
+func initDB(dbPath string) (*sql.DB, error) {
+	db, err := sql.Open("sqlite3", dbPath)
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 
 	_, err = db.Exec(`
-        CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            username TEXT NOT NULL UNIQUE,
-            password TEXT NOT NULL
-        );
-        CREATE TABLE IF NOT EXISTS workspaces (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            user_id INTEGER,
-            subdomain TEXT NOT NULL UNIQUE,
-            ips TEXT NOT NULL,
-            FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
-        );
-        CREATE TABLE IF NOT EXISTS apps (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            description TEXT,
-            git_hash TEXT,
-            ip_port TEXT NOT NULL,
-            endpoint TEXT,
-            version TEXT,
-            workspace_id INTEGER,
-            FOREIGN KEY(workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE
-        );
-    `)
+		CREATE TABLE IF NOT EXISTS users (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			username TEXT NOT NULL UNIQUE,
+			password TEXT NOT NULL
+		);
+		CREATE TABLE IF NOT EXISTS workspaces (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			name TEXT NOT NULL,
+			user_id INTEGER,
+			subdomain TEXT NOT NULL UNIQUE,
+			ips TEXT NOT NULL,
+			FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+		);
+		CREATE TABLE IF NOT EXISTS apps (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			name TEXT NOT NULL,
+			description TEXT,
+			git_hash TEXT,
+			ip_port TEXT NOT NULL,
+			endpoint TEXT,
+			version TEXT,
+			workspace_id INTEGER,
+			FOREIGN KEY(workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE
+		);
+	`)
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
+
+	return db, nil
 }
