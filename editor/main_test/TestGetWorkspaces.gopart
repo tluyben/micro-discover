@@ -19,8 +19,8 @@ func TestGetWorkspaces(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if len(response) != 1 {
-		t.Errorf("handler returned unexpected number of workspaces: got %v want %v", len(response), 1)
+	if len(response) != 2 {
+		t.Errorf("handler returned unexpected number of workspaces: got %v want %v", len(response), 2)
 	}
 }
 

@@ -1,0 +1,37 @@
+func TestUpdateUser(t *testing.T) {
+	// Create a test user first
+	user := User{Username: "testuser@example.com", Password: "testpassword"}
+	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
+	result, err := db.Exec("INSERT INTO users (username, password) VALUES (?, ?)", user.Username, string(hashedPassword))
+	if err != nil {
+		t.Fatal(err)
+	}
+	userID, _ := result.LastInsertId()
+
+	// Now update the user
+	updatedUser := User{Username: "updateduser@example.com", Password: "updatedpassword"}
+	requestBody, _ := json.Marshal(updatedUser)
+	req, err := http.NewRequest("PUT", fmt.Sprintf("/users/%d", userID), bytes.NewBuffer(requestBody))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rr := httptest.NewRecorder()
+	router := mux.NewRouter()
+	router.HandleFunc("/users/{id:[0-9]+}", updateUser).Methods("PUT")
+	router.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusOK {
+		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
+	}
+
+	// Verify that the user was updated
+	var updatedUserFromDB User
+	err = db.QueryRow("SELECT username FROM users WHERE id = ?", userID).Scan(&updatedUserFromDB.Username)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if updatedUserFromDB.Username != updatedUser.Username {
+		t.Errorf("user was not updated correctly: got %v, want %v", updatedUserFromDB.Username, updatedUser.Username)
+	}
+}

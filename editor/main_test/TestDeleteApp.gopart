@@ -1,0 +1,34 @@
+func TestDeleteApp(t *testing.T) {
+	// Create a test app first
+	app := App{Name: "TestApp", Description: "Test app for deletion"}
+	result, err := db.Exec("INSERT INTO apps (name, description) VALUES (?, ?)", app.Name, app.Description)
+	if err != nil {
+		t.Fatal(err)
+	}
+	appID, _ := result.LastInsertId()
+
+	// Now delete the app
+	req, err := http.NewRequest("DELETE", fmt.Sprintf("/apps/%d", appID), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rr := httptest.NewRecorder()
+	router := mux.NewRouter()
+	router.HandleFunc("/apps/{id:[0-9]+}", deleteApp).Methods("DELETE")
+	router.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusNoContent {
+		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusNoContent)
+	}
+
+	// Verify that the app was deleted
+	var count int
+	err = db.QueryRow("SELECT COUNT(*) FROM apps WHERE id = ?", appID).Scan(&count)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if count != 0 {
+		t.Errorf("app was not deleted: got %v records, want 0", count)
+	}
+}

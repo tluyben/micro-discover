@@ -1,0 +1,37 @@
+func TestUpdateWorkspace(t *testing.T) {
+	// Create a test workspace first
+	workspace := Workspace{Name: "TestWorkspace", UserID: 1, Subdomain: "testsubdomain", IPs: []string{"10.0.0.1"}}
+	result, err := db.Exec("INSERT INTO workspaces (name, user_id, subdomain, ips) VALUES (?, ?, ?, ?)",
+		workspace.Name, workspace.UserID, workspace.Subdomain, strings.Join(workspace.IPs, ","))
+	if err != nil {
+		t.Fatal(err)
+	}
+	workspaceID, _ := result.LastInsertId()
+
+	// Now update the workspace
+	updatedWorkspace := Workspace{Name: "UpdatedTestWorkspace", UserID: 2}
+	requestBody, _ := json.Marshal(updatedWorkspace)
+	req, err := http.NewRequest("PUT", fmt.Sprintf("/workspaces/%d", workspaceID), bytes.NewBuffer(requestBody))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rr := httptest.NewRecorder()
+	router := mux.NewRouter()
+	router.HandleFunc("/workspaces/{id:[0-9]+}", updateWorkspace).Methods("PUT")
+	router.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusOK {
+		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
+	}
+
+	// Verify that the workspace was updated
+	var updatedWorkspaceFromDB Workspace
+	err = db.QueryRow("SELECT name, user_id FROM workspaces WHERE id = ?", workspaceID).Scan(&updatedWorkspaceFromDB.Name, &updatedWorkspaceFromDB.UserID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if updatedWorkspaceFromDB.Name != updatedWorkspace.Name || updatedWorkspaceFromDB.UserID != updatedWorkspace.UserID {
+		t.Errorf("workspace was not updated correctly: got %v, want %v", updatedWorkspaceFromDB, updatedWorkspace)
+	}
+}

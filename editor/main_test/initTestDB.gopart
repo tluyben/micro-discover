@@ -1,11 +1,10 @@
 func initTestDB() *sql.DB {
 	os.Remove("./testdiscovery.db")
-	
+
 	db, err := sql.Open("sqlite3", "./testdiscovery.db")
 	if err != nil {
 		log.Fatal(err)
 	}
-
 
 	_, err = db.Exec(`
 		CREATE TABLE users (

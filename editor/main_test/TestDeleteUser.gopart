@@ -1,0 +1,35 @@
+func TestDeleteUser(t *testing.T) {
+	// Create a test user first
+	user := User{Username: "testuser@example.com", Password: "testpassword"}
+	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
+	result, err := db.Exec("INSERT INTO users (username, password) VALUES (?, ?)", user.Username, string(hashedPassword))
+	if err != nil {
+		t.Fatal(err)
+	}
+	userID, _ := result.LastInsertId()
+
+	// Now delete the user
+	req, err := http.NewRequest("DELETE", fmt.Sprintf("/users/%d", userID), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rr := httptest.NewRecorder()
+	router := mux.NewRouter()
+	router.HandleFunc("/users/{id:[0-9]+}", deleteUser).Methods("DELETE")
+	router.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusNoContent {
+		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusNoContent)
+	}
+
+	// Verify that the user was deleted
+	var count int
+	err = db.QueryRow("SELECT COUNT(*) FROM users WHERE id = ?", userID).Scan(&count)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if count != 0 {
+		t.Errorf("user was not deleted: got %v records, want 0", count)
+	}
+}
