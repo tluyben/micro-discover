@@ -86,7 +86,7 @@ The Discovery Service is a Go-based application designed to manage users, worksp
 ```json
 {
   "id": 1,
-  "username": "example_user"
+  "username": "user@example.com"
 }
 ```
 
@@ -122,7 +122,15 @@ The Discovery Service is a Go-based application designed to manage users, worksp
 ### Create a User
 
 ```bash
-curl -X POST http://localhost:8080/users -H "Content-Type: application/json" -d '{"username": "newuser", "password": "securepassword"}'
+curl -X POST http://localhost:8080/users -H "Content-Type: application/json" -d '{"username": "user@example.com", "password": "securepassword"}'
+```
+
+Response:
+```json
+{
+  "id": 1,
+  "username": "user@example.com"
+}
 ```
 
 ### Create a Workspace
@@ -131,10 +139,92 @@ curl -X POST http://localhost:8080/users -H "Content-Type: application/json" -d 
 curl -X POST http://localhost:8080/workspaces -H "Content-Type: application/json" -d '{"name": "myworkspace", "user_id": 1}'
 ```
 
+Response:
+```json
+{
+  "id": 1,
+  "name": "myworkspace",
+  "user_id": 1,
+  "subdomain": "abcd1234",
+  "ips": ["10.0.0.1"]
+}
+```
+
 ### Create an Application
 
 ```bash
 curl -X POST http://localhost:8080/apps -H "Content-Type: application/json" -d '{"name": "myapp", "description": "My first app", "git_hash": "abc123", "ip_port": "10.0.0.1:8080", "endpoint": "/api", "version": "1.0", "workspace_id": 1}'
+```
+
+Response:
+```json
+{
+  "id": 1,
+  "name": "myapp",
+  "description": "My first app",
+  "git_hash": "abc123",
+  "ip_port": "10.0.0.1:8080",
+  "endpoint": "/api",
+  "version": "1.0",
+  "workspace_id": 1
+}
+```
+
+### Get All Users
+
+```bash
+curl http://localhost:8080/users
+```
+
+Response:
+```json
+[
+  {
+    "id": 1,
+    "username": "user@example.com"
+  }
+]
+```
+
+### Get All Workspaces
+
+```bash
+curl http://localhost:8080/workspaces
+```
+
+Response:
+```json
+[
+  {
+    "id": 1,
+    "name": "myworkspace",
+    "user_id": 1,
+    "subdomain": "abcd1234",
+    "ips": ["10.0.0.1"]
+  }
+]
+```
+
+### Get All Applications
+
+```bash
+curl http://localhost:8080/apps
+```
+
+Response:
+```json
+[
+  {
+    "id": 1,
+    "name": "myapp",
+    "description": "My first app",
+    "git_hash": "abc123",
+    "ip_port": "10.0.0.1:8080",
+    "endpoint": "/api",
+    "version": "1.0",
+    "workspace_id": 1
+  }
+]
 ```
 
 ## Security Considerations
