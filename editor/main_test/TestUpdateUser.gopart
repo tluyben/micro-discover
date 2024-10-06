@@ -35,3 +35,4 @@ func TestUpdateUser(t *testing.T) {
 		t.Errorf("user was not updated correctly: got %v, want %v", updatedUserFromDB.Username, updatedUser.Username)
 	}
 }
+

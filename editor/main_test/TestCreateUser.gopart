@@ -1,4 +1,7 @@
 func TestCreateUser(t *testing.T) {
+	setUpTestEnvironment()
+	defer tearDownTestEnvironment()
+
 	requestBody := []byte(`{"username":"test@example.com","password":"testpassword"}`)
 	req, err := http.NewRequest("POST", "/users", bytes.NewBuffer(requestBody))
 	if err != nil {
@@ -24,4 +27,3 @@ func TestCreateUser(t *testing.T) {
 		t.Errorf("handler returned unexpected username: got %v want %v", response.Username, "test@example.com")
 	}
 }
-

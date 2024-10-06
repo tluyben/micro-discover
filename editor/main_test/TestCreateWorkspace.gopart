@@ -1,4 +1,7 @@
 func TestCreateWorkspace(t *testing.T) {
+	setUpTestEnvironment()
+	defer tearDownTestEnvironment()
+
 	requestBody := []byte(`{"name":"testworkspace","user_id":1}`)
 	req, err := http.NewRequest("POST", "/workspaces", bytes.NewBuffer(requestBody))
 	if err != nil {
@@ -24,4 +27,3 @@ func TestCreateWorkspace(t *testing.T) {
 		t.Errorf("handler returned unexpected workspace name: got %v want %v", response.Name, "testworkspace")
 	}
 }
-

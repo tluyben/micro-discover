@@ -18,6 +18,19 @@ import (
 )
 
 func TestGetWorkspaces(t *testing.T) {
+	setUpTestEnvironment()
+	defer tearDownTestEnvironment()
+
+	// Insert test workspaces
+	_, err := db.Exec("INSERT INTO workspaces (name, user_id, subdomain, ips) VALUES (?, ?, ?, ?)", "workspace1", 1, "subdomain1", "10.0.0.1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = db.Exec("INSERT INTO workspaces (name, user_id, subdomain, ips) VALUES (?, ?, ?, ?)", "workspace2", 1, "subdomain2", "10.0.0.2")
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	req, err := http.NewRequest("GET", "/workspaces", nil)
 	if err != nil {
 		t.Fatal(err)
@@ -45,16 +58,25 @@ func TestGetWorkspaces(t *testing.T) {
 
 func TestMain(m *testing.M) {
 	// Set up
-	db = initTestDB()
-	ipPool = NewIPPool()
+	setUpTestEnvironment()
 
 	// Run tests
 	code := m.Run()
 
 	// Tear down
-	db.Close()
+	tearDownTestEnvironment()
 
 	os.Exit(code)
+}
+
+func setUpTestEnvironment() {
+	db = initTestDB()
+	ipPool = NewIPPool()
+}
+
+func tearDownTestEnvironment() {
+	db.Close()
+	os.Remove("./testdiscovery.db")
 }
 
 func TestDeleteApp(t *testing.T) {
@@ -165,6 +187,16 @@ func TestDeleteWorkspace(t *testing.T) {
 }
 
 func TestGetApps(t *testing.T) {
+	setUpTestEnvironment()
+	defer tearDownTestEnvironment()
+
+	// Insert a test app
+	_, err := db.Exec("INSERT INTO apps (name, description, git_hash, ip_port, endpoint, version, workspace_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
+		"testapp", "Test app", "abcdef", "10.0.0.1:8080", "/api", "1.0", 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	req, err := http.NewRequest("GET", "/apps", nil)
 	if err != nil {
 		t.Fatal(err)
@@ -191,6 +223,9 @@ func TestGetApps(t *testing.T) {
 }
 
 func TestCreateWorkspace(t *testing.T) {
+	setUpTestEnvironment()
+	defer tearDownTestEnvironment()
+
 	requestBody := []byte(`{"name":"testworkspace","user_id":1}`)
 	req, err := http.NewRequest("POST", "/workspaces", bytes.NewBuffer(requestBody))
 	if err != nil {
@@ -218,6 +253,9 @@ func TestCreateWorkspace(t *testing.T) {
 }
 
 func TestCreateApp(t *testing.T) {
+	setUpTestEnvironment()
+	defer tearDownTestEnvironment()
+
 	requestBody := []byte(`{"name":"testapp","description":"Test app","git_hash":"abcdef","ip_port":"10.0.0.1:8080","endpoint":"/api","version":"1.0","workspace_id":1}`)
 	req, err := http.NewRequest("POST", "/apps", bytes.NewBuffer(requestBody))
 	if err != nil {
@@ -245,6 +283,15 @@ func TestCreateApp(t *testing.T) {
 }
 
 func TestGetUsers(t *testing.T) {
+	setUpTestEnvironment()
+	defer tearDownTestEnvironment()
+
+	// Insert a test user
+	_, err := db.Exec("INSERT INTO users (username, password) VALUES (?, ?)", "testuser@example.com", "hashedpassword")
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	req, err := http.NewRequest("GET", "/users", nil)
 	if err != nil {
 		t.Fatal(err)
@@ -384,6 +431,9 @@ func TestUpdateWorkspace(t *testing.T) {
 }
 
 func TestCreateUser(t *testing.T) {
+	setUpTestEnvironment()
+	defer tearDownTestEnvironment()
+
 	requestBody := []byte(`{"username":"test@example.com","password":"testpassword"}`)
 	req, err := http.NewRequest("POST", "/users", bytes.NewBuffer(requestBody))
 	if err != nil {

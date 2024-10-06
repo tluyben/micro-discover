@@ -34,3 +34,4 @@ func TestUpdateApp(t *testing.T) {
 		t.Errorf("app was not updated correctly: got %v, want %v", updatedAppFromDB, updatedApp)
 	}
 }
+

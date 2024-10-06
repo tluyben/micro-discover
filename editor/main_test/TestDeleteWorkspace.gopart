@@ -33,3 +33,4 @@ func TestDeleteWorkspace(t *testing.T) {
 		t.Errorf("workspace was not deleted: got %v records, want 0", count)
 	}
 }
+

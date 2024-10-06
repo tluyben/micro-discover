@@ -35,3 +35,4 @@ func TestUpdateWorkspace(t *testing.T) {
 		t.Errorf("workspace was not updated correctly: got %v, want %v", updatedWorkspaceFromDB, updatedWorkspace)
 	}
 }
+

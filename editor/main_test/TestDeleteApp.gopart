@@ -32,3 +32,4 @@ func TestDeleteApp(t *testing.T) {
 		t.Errorf("app was not deleted: got %v records, want 0", count)
 	}
 }
+

@@ -33,3 +33,4 @@ func TestDeleteUser(t *testing.T) {
 		t.Errorf("user was not deleted: got %v records, want 0", count)
 	}
 }
+

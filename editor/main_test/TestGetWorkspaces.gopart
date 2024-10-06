@@ -1,4 +1,17 @@
 func TestGetWorkspaces(t *testing.T) {
+	setUpTestEnvironment()
+	defer tearDownTestEnvironment()
+
+	// Insert test workspaces
+	_, err := db.Exec("INSERT INTO workspaces (name, user_id, subdomain, ips) VALUES (?, ?, ?, ?)", "workspace1", 1, "subdomain1", "10.0.0.1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = db.Exec("INSERT INTO workspaces (name, user_id, subdomain, ips) VALUES (?, ?, ?, ?)", "workspace2", 1, "subdomain2", "10.0.0.2")
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	req, err := http.NewRequest("GET", "/workspaces", nil)
 	if err != nil {
 		t.Fatal(err)
@@ -23,4 +36,3 @@ func TestGetWorkspaces(t *testing.T) {
 		t.Errorf("handler returned unexpected number of workspaces: got %v want %v", len(response), 2)
 	}
 }
-
