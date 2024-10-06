@@ -27,3 +27,4 @@ func TestCreateWorkspace(t *testing.T) {
 		t.Errorf("handler returned unexpected workspace name: got %v want %v", response.Name, "testworkspace")
 	}
 }
+

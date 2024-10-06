@@ -36,3 +36,4 @@ func TestGetWorkspaces(t *testing.T) {
 		t.Errorf("handler returned unexpected number of workspaces: got %v want %v", len(response), 2)
 	}
 }
+

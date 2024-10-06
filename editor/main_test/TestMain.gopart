@@ -10,13 +10,3 @@ func TestMain(m *testing.M) {
 
 	os.Exit(code)
 }
-
-func setUpTestEnvironment() {
-	db = initTestDB()
-	ipPool = NewIPPool()
-}
-
-func tearDownTestEnvironment() {
-	db.Close()
-	os.Remove("./testdiscovery.db")
-}

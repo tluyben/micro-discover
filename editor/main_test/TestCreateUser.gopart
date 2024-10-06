@@ -27,3 +27,4 @@ func TestCreateUser(t *testing.T) {
 		t.Errorf("handler returned unexpected username: got %v want %v", response.Username, "test@example.com")
 	}
 }
+

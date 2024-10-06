@@ -27,3 +27,4 @@ func TestCreateApp(t *testing.T) {
 		t.Errorf("handler returned unexpected app name: got %v want %v", response.Name, "testapp")
 	}
 }
+

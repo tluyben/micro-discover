@@ -32,3 +32,4 @@ func TestGetUsers(t *testing.T) {
 		t.Errorf("handler returned unexpected number of users: got %v want %v", len(response), 1)
 	}
 }
+

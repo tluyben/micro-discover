@@ -17,241 +17,6 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-func TestGetWorkspaces(t *testing.T) {
-	setUpTestEnvironment()
-	defer tearDownTestEnvironment()
-
-	// Insert test workspaces
-	_, err := db.Exec("INSERT INTO workspaces (name, user_id, subdomain, ips) VALUES (?, ?, ?, ?)", "workspace1", 1, "subdomain1", "10.0.0.1")
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = db.Exec("INSERT INTO workspaces (name, user_id, subdomain, ips) VALUES (?, ?, ?, ?)", "workspace2", 1, "subdomain2", "10.0.0.2")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	req, err := http.NewRequest("GET", "/workspaces", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	rr := httptest.NewRecorder()
-	router := mux.NewRouter()
-	router.HandleFunc("/workspaces", getWorkspaces).Methods("GET")
-	router.ServeHTTP(rr, req)
-
-	if status := rr.Code; status != http.StatusOK {
-		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
-	}
-
-	var response []Workspace
-	err = json.Unmarshal(rr.Body.Bytes(), &response)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if len(response) != 2 {
-		t.Errorf("handler returned unexpected number of workspaces: got %v want %v", len(response), 2)
-	}
-}
-
-func TestMain(m *testing.M) {
-	// Set up
-	setUpTestEnvironment()
-
-	// Run tests
-	code := m.Run()
-
-	// Tear down
-	tearDownTestEnvironment()
-
-	os.Exit(code)
-}
-
-func setUpTestEnvironment() {
-	db = initTestDB()
-	ipPool = NewIPPool()
-}
-
-func tearDownTestEnvironment() {
-	db.Close()
-	os.Remove("./testdiscovery.db")
-}
-
-func TestDeleteApp(t *testing.T) {
-	// Create a test app first
-	app := App{Name: "TestApp", Description: "Test app for deletion"}
-	result, err := db.Exec("INSERT INTO apps (name, description) VALUES (?, ?)", app.Name, app.Description)
-	if err != nil {
-		t.Fatal(err)
-	}
-	appID, _ := result.LastInsertId()
-
-	// Now delete the app
-	req, err := http.NewRequest("DELETE", fmt.Sprintf("/apps/%d", appID), nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	rr := httptest.NewRecorder()
-	router := mux.NewRouter()
-	router.HandleFunc("/apps/{id:[0-9]+}", deleteApp).Methods("DELETE")
-	router.ServeHTTP(rr, req)
-
-	if status := rr.Code; status != http.StatusNoContent {
-		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusNoContent)
-	}
-
-	// Verify that the app was deleted
-	var count int
-	err = db.QueryRow("SELECT COUNT(*) FROM apps WHERE id = ?", appID).Scan(&count)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if count != 0 {
-		t.Errorf("app was not deleted: got %v records, want 0", count)
-	}
-}
-
-func TestDeleteUser(t *testing.T) {
-	// Create a test user first
-	user := User{Username: "testuser@example.com", Password: "testpassword"}
-	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
-	result, err := db.Exec("INSERT INTO users (username, password) VALUES (?, ?)", user.Username, string(hashedPassword))
-	if err != nil {
-		t.Fatal(err)
-	}
-	userID, _ := result.LastInsertId()
-
-	// Now delete the user
-	req, err := http.NewRequest("DELETE", fmt.Sprintf("/users/%d", userID), nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	rr := httptest.NewRecorder()
-	router := mux.NewRouter()
-	router.HandleFunc("/users/{id:[0-9]+}", deleteUser).Methods("DELETE")
-	router.ServeHTTP(rr, req)
-
-	if status := rr.Code; status != http.StatusNoContent {
-		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusNoContent)
-	}
-
-	// Verify that the user was deleted
-	var count int
-	err = db.QueryRow("SELECT COUNT(*) FROM users WHERE id = ?", userID).Scan(&count)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if count != 0 {
-		t.Errorf("user was not deleted: got %v records, want 0", count)
-	}
-}
-
-func TestDeleteWorkspace(t *testing.T) {
-	// Create a test workspace first
-	workspace := Workspace{Name: "TestWorkspace", UserID: 1, Subdomain: "testsubdomain", IPs: []string{"10.0.0.1"}}
-	result, err := db.Exec("INSERT INTO workspaces (name, user_id, subdomain, ips) VALUES (?, ?, ?, ?)",
-		workspace.Name, workspace.UserID, workspace.Subdomain, strings.Join(workspace.IPs, ","))
-	if err != nil {
-		t.Fatal(err)
-	}
-	workspaceID, _ := result.LastInsertId()
-
-	// Now delete the workspace
-	req, err := http.NewRequest("DELETE", fmt.Sprintf("/workspaces/%d", workspaceID), nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	rr := httptest.NewRecorder()
-	router := mux.NewRouter()
-	router.HandleFunc("/workspaces/{id:[0-9]+}", deleteWorkspace).Methods("DELETE")
-	router.ServeHTTP(rr, req)
-
-	if status := rr.Code; status != http.StatusNoContent {
-		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusNoContent)
-	}
-
-	// Verify that the workspace was deleted
-	var count int
-	err = db.QueryRow("SELECT COUNT(*) FROM workspaces WHERE id = ?", workspaceID).Scan(&count)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if count != 0 {
-		t.Errorf("workspace was not deleted: got %v records, want 0", count)
-	}
-}
-
-func TestGetApps(t *testing.T) {
-	setUpTestEnvironment()
-	defer tearDownTestEnvironment()
-
-	// Insert a test app
-	_, err := db.Exec("INSERT INTO apps (name, description, git_hash, ip_port, endpoint, version, workspace_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
-		"testapp", "Test app", "abcdef", "10.0.0.1:8080", "/api", "1.0", 1)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	req, err := http.NewRequest("GET", "/apps", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	rr := httptest.NewRecorder()
-	router := mux.NewRouter()
-	router.HandleFunc("/apps", getApps).Methods("GET")
-	router.ServeHTTP(rr, req)
-
-	if status := rr.Code; status != http.StatusOK {
-		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
-	}
-
-	var response []App
-	err = json.Unmarshal(rr.Body.Bytes(), &response)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if len(response) != 1 {
-		t.Errorf("handler returned unexpected number of apps: got %v want %v", len(response), 1)
-	}
-}
-
-func TestCreateWorkspace(t *testing.T) {
-	setUpTestEnvironment()
-	defer tearDownTestEnvironment()
-
-	requestBody := []byte(`{"name":"testworkspace","user_id":1}`)
-	req, err := http.NewRequest("POST", "/workspaces", bytes.NewBuffer(requestBody))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	rr := httptest.NewRecorder()
-	router := mux.NewRouter()
-	router.HandleFunc("/workspaces", createWorkspace).Methods("POST")
-	router.ServeHTTP(rr, req)
-
-	if status := rr.Code; status != http.StatusCreated {
-		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusCreated)
-	}
-
-	var response Workspace
-	err = json.Unmarshal(rr.Body.Bytes(), &response)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if response.Name != "testworkspace" {
-		t.Errorf("handler returned unexpected workspace name: got %v want %v", response.Name, "testworkspace")
-	}
-}
-
 func TestCreateApp(t *testing.T) {
 	setUpTestEnvironment()
 	defer tearDownTestEnvironment()
@@ -317,6 +82,47 @@ func TestGetUsers(t *testing.T) {
 	}
 }
 
+func setUpTestEnvironment() {
+	db = initTestDB()
+	ipPool = NewIPPool()
+}
+
+func TestDeleteUser(t *testing.T) {
+	// Create a test user first
+	user := User{Username: "testuser@example.com", Password: "testpassword"}
+	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
+	result, err := db.Exec("INSERT INTO users (username, password) VALUES (?, ?)", user.Username, string(hashedPassword))
+	if err != nil {
+		t.Fatal(err)
+	}
+	userID, _ := result.LastInsertId()
+
+	// Now delete the user
+	req, err := http.NewRequest("DELETE", fmt.Sprintf("/users/%d", userID), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rr := httptest.NewRecorder()
+	router := mux.NewRouter()
+	router.HandleFunc("/users/{id:[0-9]+}", deleteUser).Methods("DELETE")
+	router.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusNoContent {
+		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusNoContent)
+	}
+
+	// Verify that the user was deleted
+	var count int
+	err = db.QueryRow("SELECT COUNT(*) FROM users WHERE id = ?", userID).Scan(&count)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if count != 0 {
+		t.Errorf("user was not deleted: got %v records, want 0", count)
+	}
+}
+
 func TestUpdateApp(t *testing.T) {
 	// Create a test app first
 	app := App{Name: "TestApp", Description: "Original description"}
@@ -351,44 +157,6 @@ func TestUpdateApp(t *testing.T) {
 	}
 	if updatedAppFromDB.Name != updatedApp.Name || updatedAppFromDB.Description != updatedApp.Description {
 		t.Errorf("app was not updated correctly: got %v, want %v", updatedAppFromDB, updatedApp)
-	}
-}
-
-func TestUpdateUser(t *testing.T) {
-	// Create a test user first
-	user := User{Username: "testuser@example.com", Password: "testpassword"}
-	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
-	result, err := db.Exec("INSERT INTO users (username, password) VALUES (?, ?)", user.Username, string(hashedPassword))
-	if err != nil {
-		t.Fatal(err)
-	}
-	userID, _ := result.LastInsertId()
-
-	// Now update the user
-	updatedUser := User{Username: "updateduser@example.com", Password: "updatedpassword"}
-	requestBody, _ := json.Marshal(updatedUser)
-	req, err := http.NewRequest("PUT", fmt.Sprintf("/users/%d", userID), bytes.NewBuffer(requestBody))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	rr := httptest.NewRecorder()
-	router := mux.NewRouter()
-	router.HandleFunc("/users/{id:[0-9]+}", updateUser).Methods("PUT")
-	router.ServeHTTP(rr, req)
-
-	if status := rr.Code; status != http.StatusOK {
-		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
-	}
-
-	// Verify that the user was updated
-	var updatedUserFromDB User
-	err = db.QueryRow("SELECT username FROM users WHERE id = ?", userID).Scan(&updatedUserFromDB.Username)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if updatedUserFromDB.Username != updatedUser.Username {
-		t.Errorf("user was not updated correctly: got %v, want %v", updatedUserFromDB.Username, updatedUser.Username)
 	}
 }
 
@@ -499,4 +267,238 @@ func initTestDB() *sql.DB {
 	}
 
 	return db
+}
+
+func TestDeleteApp(t *testing.T) {
+	// Create a test app first
+	app := App{Name: "TestApp", Description: "Test app for deletion"}
+	result, err := db.Exec("INSERT INTO apps (name, description) VALUES (?, ?)", app.Name, app.Description)
+	if err != nil {
+		t.Fatal(err)
+	}
+	appID, _ := result.LastInsertId()
+
+	// Now delete the app
+	req, err := http.NewRequest("DELETE", fmt.Sprintf("/apps/%d", appID), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rr := httptest.NewRecorder()
+	router := mux.NewRouter()
+	router.HandleFunc("/apps/{id:[0-9]+}", deleteApp).Methods("DELETE")
+	router.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusNoContent {
+		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusNoContent)
+	}
+
+	// Verify that the app was deleted
+	var count int
+	err = db.QueryRow("SELECT COUNT(*) FROM apps WHERE id = ?", appID).Scan(&count)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if count != 0 {
+		t.Errorf("app was not deleted: got %v records, want 0", count)
+	}
+}
+
+func TestDeleteWorkspace(t *testing.T) {
+	// Create a test workspace first
+	workspace := Workspace{Name: "TestWorkspace", UserID: 1, Subdomain: "testsubdomain", IPs: []string{"10.0.0.1"}}
+	result, err := db.Exec("INSERT INTO workspaces (name, user_id, subdomain, ips) VALUES (?, ?, ?, ?)",
+		workspace.Name, workspace.UserID, workspace.Subdomain, strings.Join(workspace.IPs, ","))
+	if err != nil {
+		t.Fatal(err)
+	}
+	workspaceID, _ := result.LastInsertId()
+
+	// Now delete the workspace
+	req, err := http.NewRequest("DELETE", fmt.Sprintf("/workspaces/%d", workspaceID), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rr := httptest.NewRecorder()
+	router := mux.NewRouter()
+	router.HandleFunc("/workspaces/{id:[0-9]+}", deleteWorkspace).Methods("DELETE")
+	router.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusNoContent {
+		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusNoContent)
+	}
+
+	// Verify that the workspace was deleted
+	var count int
+	err = db.QueryRow("SELECT COUNT(*) FROM workspaces WHERE id = ?", workspaceID).Scan(&count)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if count != 0 {
+		t.Errorf("workspace was not deleted: got %v records, want 0", count)
+	}
+}
+
+func TestCreateWorkspace(t *testing.T) {
+	setUpTestEnvironment()
+	defer tearDownTestEnvironment()
+
+	requestBody := []byte(`{"name":"testworkspace","user_id":1}`)
+	req, err := http.NewRequest("POST", "/workspaces", bytes.NewBuffer(requestBody))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rr := httptest.NewRecorder()
+	router := mux.NewRouter()
+	router.HandleFunc("/workspaces", createWorkspace).Methods("POST")
+	router.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusCreated {
+		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusCreated)
+	}
+
+	var response Workspace
+	err = json.Unmarshal(rr.Body.Bytes(), &response)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if response.Name != "testworkspace" {
+		t.Errorf("handler returned unexpected workspace name: got %v want %v", response.Name, "testworkspace")
+	}
+}
+
+func TestGetWorkspaces(t *testing.T) {
+	setUpTestEnvironment()
+	defer tearDownTestEnvironment()
+
+	// Insert test workspaces
+	_, err := db.Exec("INSERT INTO workspaces (name, user_id, subdomain, ips) VALUES (?, ?, ?, ?)", "workspace1", 1, "subdomain1", "10.0.0.1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = db.Exec("INSERT INTO workspaces (name, user_id, subdomain, ips) VALUES (?, ?, ?, ?)", "workspace2", 1, "subdomain2", "10.0.0.2")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req, err := http.NewRequest("GET", "/workspaces", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rr := httptest.NewRecorder()
+	router := mux.NewRouter()
+	router.HandleFunc("/workspaces", getWorkspaces).Methods("GET")
+	router.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusOK {
+		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
+	}
+
+	var response []Workspace
+	err = json.Unmarshal(rr.Body.Bytes(), &response)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(response) != 2 {
+		t.Errorf("handler returned unexpected number of workspaces: got %v want %v", len(response), 2)
+	}
+}
+
+func TestMain(m *testing.M) {
+	// Set up
+	setUpTestEnvironment()
+
+	// Run tests
+	code := m.Run()
+
+	// Tear down
+	tearDownTestEnvironment()
+
+	os.Exit(code)
+}
+
+func tearDownTestEnvironment() {
+	if db != nil {
+		db.Close()
+	}
+	os.Remove("./testdiscovery.db")
+}
+
+func TestGetApps(t *testing.T) {
+	setUpTestEnvironment()
+	defer tearDownTestEnvironment()
+
+	// Insert a test app
+	_, err := db.Exec("INSERT INTO apps (name, description, git_hash, ip_port, endpoint, version, workspace_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
+		"testapp", "Test app", "abcdef", "10.0.0.1:8080", "/api", "1.0", 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req, err := http.NewRequest("GET", "/apps", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rr := httptest.NewRecorder()
+	router := mux.NewRouter()
+	router.HandleFunc("/apps", getApps).Methods("GET")
+	router.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusOK {
+		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
+	}
+
+	var response []App
+	err = json.Unmarshal(rr.Body.Bytes(), &response)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(response) != 1 {
+		t.Errorf("handler returned unexpected number of apps: got %v want %v", len(response), 1)
+	}
+}
+
+func TestUpdateUser(t *testing.T) {
+	// Create a test user first
+	user := User{Username: "testuser@example.com", Password: "testpassword"}
+	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
+	result, err := db.Exec("INSERT INTO users (username, password) VALUES (?, ?)", user.Username, string(hashedPassword))
+	if err != nil {
+		t.Fatal(err)
+	}
+	userID, _ := result.LastInsertId()
+
+	// Now update the user
+	updatedUser := User{Username: "updateduser@example.com", Password: "updatedpassword"}
+	requestBody, _ := json.Marshal(updatedUser)
+	req, err := http.NewRequest("PUT", fmt.Sprintf("/users/%d", userID), bytes.NewBuffer(requestBody))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rr := httptest.NewRecorder()
+	router := mux.NewRouter()
+	router.HandleFunc("/users/{id:[0-9]+}", updateUser).Methods("PUT")
+	router.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusOK {
+		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
+	}
+
+	// Verify that the user was updated
+	var updatedUserFromDB User
+	err = db.QueryRow("SELECT username FROM users WHERE id = ?", userID).Scan(&updatedUserFromDB.Username)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if updatedUserFromDB.Username != updatedUser.Username {
+		t.Errorf("user was not updated correctly: got %v, want %v", updatedUserFromDB.Username, updatedUser.Username)
+	}
 }

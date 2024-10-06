@@ -33,3 +33,4 @@ func TestGetApps(t *testing.T) {
 		t.Errorf("handler returned unexpected number of apps: got %v want %v", len(response), 1)
 	}
 }
+

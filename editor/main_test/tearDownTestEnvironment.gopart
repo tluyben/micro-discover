@@ -1,0 +1,6 @@
+func tearDownTestEnvironment() {
+	if db != nil {
+		db.Close()
+	}
+	os.Remove("./testdiscovery.db")
+}

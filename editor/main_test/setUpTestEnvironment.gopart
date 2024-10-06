@@ -1,0 +1,4 @@
+func setUpTestEnvironment() {
+	db = initTestDB()
+	ipPool = NewIPPool()
+}
