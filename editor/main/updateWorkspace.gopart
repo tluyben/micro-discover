@@ -1,0 +1,18 @@
+func updateWorkspace(w http.ResponseWriter, r *http.Request) {
+	params := mux.Vars(r)
+	var workspace Workspace
+	if err := json.NewDecoder(r.Body).Decode(&workspace); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	_, err := db.Exec("UPDATE workspaces SET name = ?, user_id = ? WHERE id = ?",
+		workspace.Name, workspace.UserID, params["id"])
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	json.NewEncoder(w).Encode(workspace)
+}
+

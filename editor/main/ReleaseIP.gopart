@@ -1,0 +1,10 @@
+func (p *IPPool) ReleaseIP(ip string) {
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
+
+	if p.inUse[ip] {
+		delete(p.inUse, ip)
+		p.available = append(p.available, net.ParseIP(ip))
+	}
+}
+

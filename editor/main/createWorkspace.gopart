@@ -1,0 +1,29 @@
+func createWorkspace(w http.ResponseWriter, r *http.Request) {
+	var workspace Workspace
+	if err := json.NewDecoder(r.Body).Decode(&workspace); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	workspace.Subdomain = generateSubdomain()
+	ip, err := ipPool.AllocateIP()
+	if err != nil {
+		http.Error(w, "Failed to allocate IP", http.StatusInternalServerError)
+		return
+	}
+	workspace.IPs = []string{ip}
+
+	result, err := db.Exec("INSERT INTO workspaces (name, user_id, subdomain, ips) VALUES (?, ?, ?, ?)",
+		workspace.Name, workspace.UserID, workspace.Subdomain, strings.Join(workspace.IPs, ","))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	id, _ := result.LastInsertId()
+	workspace.ID = int(id)
+
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(workspace)
+}
+

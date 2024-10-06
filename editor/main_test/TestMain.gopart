@@ -1,0 +1,14 @@
+func TestMain(m *testing.M) {
+	// Set up
+	db = initTestDB()
+	ipPool = NewIPPool()
+
+	// Run tests
+	code := m.Run()
+
+	// Tear down
+	db.Close()
+
+	os.Exit(code)
+}
+

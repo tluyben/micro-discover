@@ -14,18 +14,31 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
-func TestMain(m *testing.M) {
-	// Set up
-	db = initTestDB()
-	ipPool = NewIPPool()
+func TestCreateApp(t *testing.T) {
+	requestBody := []byte(`{"name":"testapp","description":"Test app","git_hash":"abcdef","ip_port":"10.0.0.1:8080","endpoint":"/api","version":"1.0","workspace_id":1}`)
+	req, err := http.NewRequest("POST", "/apps", bytes.NewBuffer(requestBody))
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	// Run tests
-	code := m.Run()
+	rr := httptest.NewRecorder()
+	router := mux.NewRouter()
+	router.HandleFunc("/apps", createApp).Methods("POST")
+	router.ServeHTTP(rr, req)
 
-	// Tear down
-	db.Close()
+	if status := rr.Code; status != http.StatusCreated {
+		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusCreated)
+	}
 
-	os.Exit(code)
+	var response App
+	err = json.Unmarshal(rr.Body.Bytes(), &response)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if response.Name != "testapp" {
+		t.Errorf("handler returned unexpected app name: got %v want %v", response.Name, "testapp")
+	}
 }
 
 func TestCreateUser(t *testing.T) {
@@ -52,32 +65,6 @@ func TestCreateUser(t *testing.T) {
 
 	if response.Username != "test@example.com" {
 		t.Errorf("handler returned unexpected username: got %v want %v", response.Username, "test@example.com")
-	}
-}
-
-func TestGetUsers(t *testing.T) {
-	req, err := http.NewRequest("GET", "/users", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	rr := httptest.NewRecorder()
-	router := mux.NewRouter()
-	router.HandleFunc("/users", getUsers).Methods("GET")
-	router.ServeHTTP(rr, req)
-
-	if status := rr.Code; status != http.StatusOK {
-		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
-	}
-
-	var response []User
-	err = json.Unmarshal(rr.Body.Bytes(), &response)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if len(response) != 1 {
-		t.Errorf("handler returned unexpected number of users: got %v want %v", len(response), 1)
 	}
 }
 
@@ -108,6 +95,58 @@ func TestCreateWorkspace(t *testing.T) {
 	}
 }
 
+func TestGetApps(t *testing.T) {
+	req, err := http.NewRequest("GET", "/apps", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rr := httptest.NewRecorder()
+	router := mux.NewRouter()
+	router.HandleFunc("/apps", getApps).Methods("GET")
+	router.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusOK {
+		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
+	}
+
+	var response []App
+	err = json.Unmarshal(rr.Body.Bytes(), &response)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(response) != 1 {
+		t.Errorf("handler returned unexpected number of apps: got %v want %v", len(response), 1)
+	}
+}
+
+func TestGetUsers(t *testing.T) {
+	req, err := http.NewRequest("GET", "/users", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rr := httptest.NewRecorder()
+	router := mux.NewRouter()
+	router.HandleFunc("/users", getUsers).Methods("GET")
+	router.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusOK {
+		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
+	}
+
+	var response []User
+	err = json.Unmarshal(rr.Body.Bytes(), &response)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(response) != 1 {
+		t.Errorf("handler returned unexpected number of users: got %v want %v", len(response), 1)
+	}
+}
+
 func TestGetWorkspaces(t *testing.T) {
 	req, err := http.NewRequest("GET", "/workspaces", nil)
 	if err != nil {
@@ -134,57 +173,18 @@ func TestGetWorkspaces(t *testing.T) {
 	}
 }
 
-func TestCreateApp(t *testing.T) {
-	requestBody := []byte(`{"name":"testapp","description":"Test app","git_hash":"abcdef","ip_port":"10.0.0.1:8080","endpoint":"/api","version":"1.0","workspace_id":1}`)
-	req, err := http.NewRequest("POST", "/apps", bytes.NewBuffer(requestBody))
-	if err != nil {
-		t.Fatal(err)
-	}
+func TestMain(m *testing.M) {
+	// Set up
+	db = initTestDB()
+	ipPool = NewIPPool()
 
-	rr := httptest.NewRecorder()
-	router := mux.NewRouter()
-	router.HandleFunc("/apps", createApp).Methods("POST")
-	router.ServeHTTP(rr, req)
+	// Run tests
+	code := m.Run()
 
-	if status := rr.Code; status != http.StatusCreated {
-		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusCreated)
-	}
+	// Tear down
+	db.Close()
 
-	var response App
-	err = json.Unmarshal(rr.Body.Bytes(), &response)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if response.Name != "testapp" {
-		t.Errorf("handler returned unexpected app name: got %v want %v", response.Name, "testapp")
-	}
-}
-
-func TestGetApps(t *testing.T) {
-	req, err := http.NewRequest("GET", "/apps", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	rr := httptest.NewRecorder()
-	router := mux.NewRouter()
-	router.HandleFunc("/apps", getApps).Methods("GET")
-	router.ServeHTTP(rr, req)
-
-	if status := rr.Code; status != http.StatusOK {
-		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
-	}
-
-	var response []App
-	err = json.Unmarshal(rr.Body.Bytes(), &response)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if len(response) != 1 {
-		t.Errorf("handler returned unexpected number of apps: got %v want %v", len(response), 1)
-	}
+	os.Exit(code)
 }
 
 func initTestDB() *sql.DB {

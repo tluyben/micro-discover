@@ -1,0 +1,21 @@
+func getApps(w http.ResponseWriter, r *http.Request) {
+	rows, err := db.Query("SELECT id, name, description, git_hash, ip_port, endpoint, version, workspace_id FROM apps")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	apps := []App{}
+	for rows.Next() {
+		var a App
+		if err := rows.Scan(&a.ID, &a.Name, &a.Description, &a.GitHash, &a.IPPort, &a.Endpoint, &a.Version, &a.WorkspaceID); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		apps = append(apps, a)
+	}
+
+	json.NewEncoder(w).Encode(apps)
+}
+

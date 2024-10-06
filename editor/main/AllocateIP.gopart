@@ -1,0 +1,16 @@
+func (p *IPPool) AllocateIP() (string, error) {
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
+
+	if len(p.available) == 0 {
+		return "", fmt.Errorf("no available IPs")
+	}
+
+	ip := p.available[0]
+	p.available = p.available[1:]
+	ipStr := ip.String()
+	p.inUse[ipStr] = true
+
+	return ipStr, nil
+}
+

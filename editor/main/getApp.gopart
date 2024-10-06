@@ -1,0 +1,12 @@
+func getApp(w http.ResponseWriter, r *http.Request) {
+	params := mux.Vars(r)
+	var app App
+	err := db.QueryRow("SELECT id, name, description, git_hash, ip_port, endpoint, version, workspace_id FROM apps WHERE id = ?", params["id"]).
+		Scan(&app.ID, &app.Name, &app.Description, &app.GitHash, &app.IPPort, &app.Endpoint, &app.Version, &app.WorkspaceID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+	json.NewEncoder(w).Encode(app)
+}
+

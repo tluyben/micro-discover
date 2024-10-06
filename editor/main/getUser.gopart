@@ -1,0 +1,11 @@
+func getUser(w http.ResponseWriter, r *http.Request) {
+	params := mux.Vars(r)
+	var user User
+	err := db.QueryRow("SELECT id, username FROM users WHERE id = ?", params["id"]).Scan(&user.ID, &user.Username)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+	json.NewEncoder(w).Encode(user)
+}
+

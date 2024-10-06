@@ -1,0 +1,31 @@
+func updateUser(w http.ResponseWriter, r *http.Request) {
+	params := mux.Vars(r)
+	var user User
+	if err := json.NewDecoder(r.Body).Decode(&user); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// Validate email
+	_, err := mail.ParseAddress(user.Username)
+	if err != nil {
+		http.Error(w, "Invalid email address", http.StatusBadRequest)
+		return
+	}
+
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
+	if err != nil {
+		http.Error(w, "Failed to hash password", http.StatusInternalServerError)
+		return
+	}
+
+	_, err = db.Exec("UPDATE users SET username = ?, password = ? WHERE id = ?", user.Username, string(hashedPassword), params["id"])
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	user.Password = "" // Don't send password back
+	json.NewEncoder(w).Encode(user)
+}
+

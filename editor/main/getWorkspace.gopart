@@ -1,0 +1,14 @@
+func getWorkspace(w http.ResponseWriter, r *http.Request) {
+	params := mux.Vars(r)
+	var workspace Workspace
+	var ips string
+	err := db.QueryRow("SELECT id, name, user_id, subdomain, ips FROM workspaces WHERE id = ?", params["id"]).
+		Scan(&workspace.ID, &workspace.Name, &workspace.UserID, &workspace.Subdomain, &ips)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+	workspace.IPs = strings.Split(ips, ",")
+	json.NewEncoder(w).Encode(workspace)
+}
+

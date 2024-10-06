@@ -1,0 +1,33 @@
+func main() {
+	initDB()
+	defer db.Close()
+
+	ipPool = NewIPPool()
+
+	r := mux.NewRouter()
+
+	// User routes
+	r.HandleFunc("/users", createUser).Methods("POST")
+	r.HandleFunc("/users", getUsers).Methods("GET")
+	r.HandleFunc("/users/{id:[0-9]+}", getUser).Methods("GET")
+	r.HandleFunc("/users/{id:[0-9]+}", updateUser).Methods("PUT")
+	r.HandleFunc("/users/{id:[0-9]+}", deleteUser).Methods("DELETE")
+
+	// Workspace routes
+	r.HandleFunc("/workspaces", createWorkspace).Methods("POST")
+	r.HandleFunc("/workspaces", getWorkspaces).Methods("GET")
+	r.HandleFunc("/workspaces/{id:[0-9]+}", getWorkspace).Methods("GET")
+	r.HandleFunc("/workspaces/{id:[0-9]+}", updateWorkspace).Methods("PUT")
+	r.HandleFunc("/workspaces/{id:[0-9]+}", deleteWorkspace).Methods("DELETE")
+
+	// App routes
+	r.HandleFunc("/apps", createApp).Methods("POST")
+	r.HandleFunc("/apps", getApps).Methods("GET")
+	r.HandleFunc("/apps/{id:[0-9]+}", getApp).Methods("GET")
+	r.HandleFunc("/apps/{id:[0-9]+}", updateApp).Methods("PUT")
+	r.HandleFunc("/apps/{id:[0-9]+}", deleteApp).Methods("DELETE")
+
+	log.Println("Server starting on :8080")
+	log.Fatal(http.ListenAndServe(":8080", r))
+}
+

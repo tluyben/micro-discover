@@ -1,0 +1,21 @@
+func getUsers(w http.ResponseWriter, r *http.Request) {
+	rows, err := db.Query("SELECT id, username FROM users")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	users := []User{}
+	for rows.Next() {
+		var u User
+		if err := rows.Scan(&u.ID, &u.Username); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		users = append(users, u)
+	}
+
+	json.NewEncoder(w).Encode(users)
+}
+
