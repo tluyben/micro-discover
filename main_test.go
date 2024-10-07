@@ -17,119 +17,6 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-func TestUpdateUser(t *testing.T) {
-	clearDatabase()
-	// Create a test user first
-	user := User{Username: "testuser@example.com", Password: "testpassword"}
-	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
-	result, err := db.Exec("INSERT INTO users (username, password) VALUES (?, ?)", user.Username, string(hashedPassword))
-	if err != nil {
-		t.Fatal(err)
-	}
-	userID, _ := result.LastInsertId()
-
-	// Now update the user
-	updatedUser := User{Username: "updateduser@example.com", Password: "updatedpassword"}
-	requestBody, _ := json.Marshal(updatedUser)
-	req, err := http.NewRequest("PUT", fmt.Sprintf("/users/%d", userID), bytes.NewBuffer(requestBody))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	rr := httptest.NewRecorder()
-	router := mux.NewRouter()
-	router.HandleFunc("/users/{id:[0-9]+}", updateUser).Methods("PUT")
-	router.ServeHTTP(rr, req)
-
-	if status := rr.Code; status != http.StatusOK {
-		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
-	}
-
-	// Verify that the user was updated
-	var updatedUserFromDB User
-	err = db.QueryRow("SELECT username FROM users WHERE id = ?", userID).Scan(&updatedUserFromDB.Username)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if updatedUserFromDB.Username != updatedUser.Username {
-		t.Errorf("user was not updated correctly: got %v, want %v", updatedUserFromDB.Username, updatedUser.Username)
-	}
-}
-
-func TestUpdateWorkspace(t *testing.T) {
-	clearDatabase()
-	// Create a test workspace first
-	workspace := Workspace{Name: "TestWorkspace", UserID: 1, Subdomain: "testsubdomain", IPs: []string{"10.0.0.1"}}
-	result, err := db.Exec("INSERT INTO workspaces (name, user_id, subdomain, ips) VALUES (?, ?, ?, ?)",
-		workspace.Name, workspace.UserID, workspace.Subdomain, strings.Join(workspace.IPs, ","))
-	if err != nil {
-		t.Fatal(err)
-	}
-	workspaceID, _ := result.LastInsertId()
-
-	// Now update the workspace
-	updatedWorkspace := Workspace{Name: "UpdatedTestWorkspace", UserID: 2}
-	requestBody, _ := json.Marshal(updatedWorkspace)
-	req, err := http.NewRequest("PUT", fmt.Sprintf("/workspaces/%d", workspaceID), bytes.NewBuffer(requestBody))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	rr := httptest.NewRecorder()
-	router := mux.NewRouter()
-	router.HandleFunc("/workspaces/{id:[0-9]+}", updateWorkspace).Methods("PUT")
-	router.ServeHTTP(rr, req)
-
-	if status := rr.Code; status != http.StatusOK {
-		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
-	}
-
-	// Verify that the workspace was updated
-	var updatedWorkspaceFromDB Workspace
-	err = db.QueryRow("SELECT name, user_id FROM workspaces WHERE id = ?", workspaceID).Scan(&updatedWorkspaceFromDB.Name, &updatedWorkspaceFromDB.UserID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if updatedWorkspaceFromDB.Name != updatedWorkspace.Name || updatedWorkspaceFromDB.UserID != updatedWorkspace.UserID {
-		t.Errorf("workspace was not updated correctly: got %v, want %v", updatedWorkspaceFromDB, updatedWorkspace)
-	}
-}
-
-func TestCreateWorkspace(t *testing.T) {
-	clearDatabase()
-	requestBody := []byte(`{"name":"testworkspace","user_id":1}`)
-	req, err := http.NewRequest("POST", "/workspaces", bytes.NewBuffer(requestBody))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	rr := httptest.NewRecorder()
-	router := mux.NewRouter()
-	router.HandleFunc("/workspaces", createWorkspace).Methods("POST")
-	router.ServeHTTP(rr, req)
-
-	if status := rr.Code; status != http.StatusCreated {
-		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusCreated)
-	}
-
-	var response Workspace
-	err = json.Unmarshal(rr.Body.Bytes(), &response)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if response.Name != "testworkspace" {
-		t.Errorf("handler returned unexpected workspace name: got %v want %v", response.Name, "testworkspace")
-	}
-}
-
-func tearDownTestDB() {
-	if db != nil {
-		db.Close()
-	}
-	// os.Remove("./testdiscovery.db")
-}
-
 func TestGetApps(t *testing.T) {
 	clearDatabase()
 	// Insert a test app
@@ -201,20 +88,6 @@ func TestGetWorkspaces(t *testing.T) {
 	}
 }
 
-func TestMain(m *testing.M) {
-	// Set up
-	setupTestDB()
-	ipPool = NewIPPool()
-
-	// Run tests
-	code := m.Run()
-
-	// Tear down
-	tearDownTestDB()
-
-	os.Exit(code)
-}
-
 func TestGetUsers(t *testing.T) {
 	clearDatabase()
 	// Insert a test user
@@ -246,6 +119,153 @@ func TestGetUsers(t *testing.T) {
 	if len(response) != 1 {
 		t.Errorf("handler returned unexpected number of users: got %v want %v", len(response), 1)
 	}
+}
+
+func TestUpdateWorkspace(t *testing.T) {
+	clearDatabase()
+	// Create a test workspace first
+	workspace := Workspace{Name: "TestWorkspace", UserID: 1, Subdomain: "testsubdomain", IPs: []string{"10.0.0.1"}}
+	result, err := db.Exec("INSERT INTO workspaces (name, user_id, subdomain, ips) VALUES (?, ?, ?, ?)",
+		workspace.Name, workspace.UserID, workspace.Subdomain, strings.Join(workspace.IPs, ","))
+	if err != nil {
+		t.Fatal(err)
+	}
+	workspaceID, _ := result.LastInsertId()
+
+	// Now update the workspace
+	updatedWorkspace := Workspace{Name: "UpdatedTestWorkspace", UserID: 2}
+	requestBody, _ := json.Marshal(updatedWorkspace)
+	req, err := http.NewRequest("PUT", fmt.Sprintf("/workspaces/%d", workspaceID), bytes.NewBuffer(requestBody))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rr := httptest.NewRecorder()
+	router := mux.NewRouter()
+	router.HandleFunc("/workspaces/{id:[0-9]+}", updateWorkspace).Methods("PUT")
+	router.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusOK {
+		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
+	}
+
+	// Verify that the workspace was updated
+	var updatedWorkspaceFromDB Workspace
+	err = db.QueryRow("SELECT name, user_id FROM workspaces WHERE id = ?", workspaceID).Scan(&updatedWorkspaceFromDB.Name, &updatedWorkspaceFromDB.UserID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if updatedWorkspaceFromDB.Name != updatedWorkspace.Name || updatedWorkspaceFromDB.UserID != updatedWorkspace.UserID {
+		t.Errorf("workspace was not updated correctly: got %v, want %v", updatedWorkspaceFromDB, updatedWorkspace)
+	}
+}
+
+func tearDownTestDB() {
+	if db != nil {
+		db.Close()
+	}
+	// os.Remove("./testdiscovery.db")
+}
+
+func tearDownTestEnvironment() {
+	if db != nil {
+		db.Close()
+	}
+	os.Remove("./testdiscovery.db")
+}
+
+func TestCreateUser(t *testing.T) {
+	clearDatabase()
+	requestBody := []byte(`{"username":"test@example.com","password":"testpassword"}`)
+	req, err := http.NewRequest("POST", "/users", bytes.NewBuffer(requestBody))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rr := httptest.NewRecorder()
+	router := mux.NewRouter()
+	router.HandleFunc("/users", createUser).Methods("POST")
+	router.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusCreated {
+		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusCreated)
+	}
+
+	var response User
+	err = json.Unmarshal(rr.Body.Bytes(), &response)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if response.Username != "test@example.com" {
+		t.Errorf("handler returned unexpected username: got %v want %v", response.Username, "test@example.com")
+	}
+}
+
+func setupTestDB() {
+	os.Remove("./testdiscovery.db")
+	var err error
+	db, err = initDB("./testdiscovery.db")
+	if err != nil {
+		panic(err)
+	}
+}
+
+func TestDeleteApp(t *testing.T) {
+	clearDatabase()
+	// Create a test workspace first
+	_, err := db.Exec("INSERT INTO workspaces (name, user_id, subdomain, ips) VALUES (?, ?, ?, ?)", "TestWorkspace", 1, "testsubdomain", "10.0.0.1")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Create a test app first
+	app := App{Name: "TestApp", Description: "Test app for deletion", IPPort: "10.0.0.1:8080", WorkspaceID: 1}
+	result, err := db.Exec("INSERT INTO apps (name, description, ip_port, workspace_id) VALUES (?, ?, ?, ?)",
+		app.Name, app.Description, app.IPPort, app.WorkspaceID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	appID, _ := result.LastInsertId()
+
+	// Now delete the app
+	req, err := http.NewRequest("DELETE", fmt.Sprintf("/apps/%d", appID), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rr := httptest.NewRecorder()
+	router := mux.NewRouter()
+	router.HandleFunc("/apps/{id:[0-9]+}", deleteApp).Methods("DELETE")
+	router.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusNoContent {
+		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusNoContent)
+	}
+
+	// Verify that the app was deleted
+	var count int
+	err = db.QueryRow("SELECT COUNT(*) FROM apps WHERE id = ?", appID).Scan(&count)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if count != 0 {
+		t.Errorf("app was not deleted: got %v records, want 0", count)
+	}
+}
+
+func TestMain(m *testing.M) {
+	// Set up
+	setupTestDB()
+	ipPool = NewIPPool()
+
+	// Run tests
+	code := m.Run()
+
+	// Tear down
+	tearDownTestDB()
+
+	os.Exit(code)
 }
 
 func _initTestDB() *sql.DB {
@@ -293,34 +313,6 @@ func clearDatabase() {
 	db.Exec("DELETE FROM apps")
 	db.Exec("DELETE FROM workspaces")
 	db.Exec("DELETE FROM users")
-}
-
-func TestCreateAppRole(t *testing.T) {
-	clearDatabase()
-	requestBody := []byte(`{"user_id":1,"role":"developer","app_id":1}`)
-	req, err := http.NewRequest("POST", "/app-roles", bytes.NewBuffer(requestBody))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	rr := httptest.NewRecorder()
-	router := mux.NewRouter()
-	router.HandleFunc("/app-roles", createAppRole).Methods("POST")
-	router.ServeHTTP(rr, req)
-
-	if status := rr.Code; status != http.StatusCreated {
-		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusCreated)
-	}
-
-	var response AppRole
-	err = json.Unmarshal(rr.Body.Bytes(), &response)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if response.Role != "developer" {
-		t.Errorf("handler returned unexpected role: got %v want %v", response.Role, "developer")
-	}
 }
 
 func TestCreateApp(t *testing.T) {
@@ -388,41 +380,6 @@ func TestDeleteUser(t *testing.T) {
 	}
 }
 
-func tearDownTestEnvironment() {
-	if db != nil {
-		db.Close()
-	}
-	os.Remove("./testdiscovery.db")
-}
-
-func TestCreateUser(t *testing.T) {
-	clearDatabase()
-	requestBody := []byte(`{"username":"test@example.com","password":"testpassword"}`)
-	req, err := http.NewRequest("POST", "/users", bytes.NewBuffer(requestBody))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	rr := httptest.NewRecorder()
-	router := mux.NewRouter()
-	router.HandleFunc("/users", createUser).Methods("POST")
-	router.ServeHTTP(rr, req)
-
-	if status := rr.Code; status != http.StatusCreated {
-		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusCreated)
-	}
-
-	var response User
-	err = json.Unmarshal(rr.Body.Bytes(), &response)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if response.Username != "test@example.com" {
-		t.Errorf("handler returned unexpected username: got %v want %v", response.Username, "test@example.com")
-	}
-}
-
 func TestCreateWorkspaceRole(t *testing.T) {
 	clearDatabase()
 	requestBody := []byte(`{"user_id":1,"role":"admin","workspace_id":1}`)
@@ -448,15 +405,6 @@ func TestCreateWorkspaceRole(t *testing.T) {
 
 	if response.Role != "admin" {
 		t.Errorf("handler returned unexpected role: got %v want %v", response.Role, "admin")
-	}
-}
-
-func setupTestDB() {
-	os.Remove("./testdiscovery.db")
-	var err error
-	db, err = initDB("./testdiscovery.db")
-	if err != nil {
-		panic(err)
 	}
 }
 
@@ -502,46 +450,98 @@ func TestDeleteWorkspace(t *testing.T) {
 	}
 }
 
-func TestDeleteApp(t *testing.T) {
+func TestUpdateUser(t *testing.T) {
 	clearDatabase()
-	// Create a test workspace first
-	_, err := db.Exec("INSERT INTO workspaces (name, user_id, subdomain, ips) VALUES (?, ?, ?, ?)", "TestWorkspace", 1, "testsubdomain", "10.0.0.1")
+	// Create a test user first
+	user := User{Username: "testuser@example.com", Password: "testpassword"}
+	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
+	result, err := db.Exec("INSERT INTO users (username, password) VALUES (?, ?)", user.Username, string(hashedPassword))
 	if err != nil {
 		t.Fatal(err)
 	}
+	userID, _ := result.LastInsertId()
 
-	// Create a test app first
-	app := App{Name: "TestApp", Description: "Test app for deletion", IPPort: "10.0.0.1:8080", WorkspaceID: 1}
-	result, err := db.Exec("INSERT INTO apps (name, description, ip_port, workspace_id) VALUES (?, ?, ?, ?)",
-		app.Name, app.Description, app.IPPort, app.WorkspaceID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	appID, _ := result.LastInsertId()
-
-	// Now delete the app
-	req, err := http.NewRequest("DELETE", fmt.Sprintf("/apps/%d", appID), nil)
+	// Now update the user
+	updatedUser := User{Username: "updateduser@example.com", Password: "updatedpassword"}
+	requestBody, _ := json.Marshal(updatedUser)
+	req, err := http.NewRequest("PUT", fmt.Sprintf("/users/%d", userID), bytes.NewBuffer(requestBody))
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	rr := httptest.NewRecorder()
 	router := mux.NewRouter()
-	router.HandleFunc("/apps/{id:[0-9]+}", deleteApp).Methods("DELETE")
+	router.HandleFunc("/users/{id:[0-9]+}", updateUser).Methods("PUT")
 	router.ServeHTTP(rr, req)
 
-	if status := rr.Code; status != http.StatusNoContent {
-		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusNoContent)
+	if status := rr.Code; status != http.StatusOK {
+		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
 	}
 
-	// Verify that the app was deleted
-	var count int
-	err = db.QueryRow("SELECT COUNT(*) FROM apps WHERE id = ?", appID).Scan(&count)
+	// Verify that the user was updated
+	var updatedUserFromDB User
+	err = db.QueryRow("SELECT username FROM users WHERE id = ?", userID).Scan(&updatedUserFromDB.Username)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if count != 0 {
-		t.Errorf("app was not deleted: got %v records, want 0", count)
+	if updatedUserFromDB.Username != updatedUser.Username {
+		t.Errorf("user was not updated correctly: got %v, want %v", updatedUserFromDB.Username, updatedUser.Username)
+	}
+}
+
+func TestCreateWorkspace(t *testing.T) {
+	clearDatabase()
+	requestBody := []byte(`{"name":"testworkspace","user_id":1}`)
+	req, err := http.NewRequest("POST", "/workspaces", bytes.NewBuffer(requestBody))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rr := httptest.NewRecorder()
+	router := mux.NewRouter()
+	router.HandleFunc("/workspaces", createWorkspace).Methods("POST")
+	router.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusCreated {
+		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusCreated)
+	}
+
+	var response Workspace
+	err = json.Unmarshal(rr.Body.Bytes(), &response)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if response.Name != "testworkspace" {
+		t.Errorf("handler returned unexpected workspace name: got %v want %v", response.Name, "testworkspace")
+	}
+}
+
+func TestCreateAppRole(t *testing.T) {
+	clearDatabase()
+	requestBody := []byte(`{"user_id":1,"role":"developer","app_id":1}`)
+	req, err := http.NewRequest("POST", "/app-roles", bytes.NewBuffer(requestBody))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rr := httptest.NewRecorder()
+	router := mux.NewRouter()
+	router.HandleFunc("/app-roles", createAppRole).Methods("POST")
+	router.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusCreated {
+		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusCreated)
+	}
+
+	var response AppRole
+	err = json.Unmarshal(rr.Body.Bytes(), &response)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if response.Role != "developer" {
+		t.Errorf("handler returned unexpected role: got %v want %v", response.Role, "developer")
 	}
 }
 
