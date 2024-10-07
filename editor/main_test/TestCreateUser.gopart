@@ -1,7 +1,5 @@
 func TestCreateUser(t *testing.T) {
-	setUpTestEnvironment()
-	defer tearDownTestEnvironment()
-
+	clearDatabase()
 	requestBody := []byte(`{"username":"test@example.com","password":"testpassword"}`)
 	req, err := http.NewRequest("POST", "/users", bytes.NewBuffer(requestBody))
 	if err != nil {

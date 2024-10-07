@@ -1,4 +1,5 @@
 func TestDeleteWorkspace(t *testing.T) {
+	clearDatabase()
 	// Create a test workspace first
 	workspace := Workspace{Name: "TestWorkspace", UserID: 1, Subdomain: "testsubdomain", IPs: []string{"10.0.0.1"}}
 	result, err := db.Exec("INSERT INTO workspaces (name, user_id, subdomain, ips) VALUES (?, ?, ?, ?)",

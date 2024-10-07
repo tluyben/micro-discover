@@ -1,7 +1,5 @@
 func TestCreateWorkspace(t *testing.T) {
-	setUpTestEnvironment()
-	defer tearDownTestEnvironment()
-
+	clearDatabase()
 	requestBody := []byte(`{"name":"testworkspace","user_id":1}`)
 	req, err := http.NewRequest("POST", "/workspaces", bytes.NewBuffer(requestBody))
 	if err != nil {

@@ -1,5 +1,5 @@
 func main() {
-	initDB()
+	initDB("./discovery.db")
 	defer db.Close()
 
 	ipPool = NewIPPool()
@@ -27,7 +27,18 @@ func main() {
 	r.HandleFunc("/apps/{id:[0-9]+}", updateApp).Methods("PUT")
 	r.HandleFunc("/apps/{id:[0-9]+}", deleteApp).Methods("DELETE")
 
+	// Workspace role routes
+	r.HandleFunc("/workspace-roles", createWorkspaceRole).Methods("POST")
+	r.HandleFunc("/workspace-roles", getWorkspaceRoles).Methods("GET")
+	r.HandleFunc("/workspace-roles/{id:[0-9]+}", updateWorkspaceRole).Methods("PUT")
+	r.HandleFunc("/workspace-roles/{id:[0-9]+}", deleteWorkspaceRole).Methods("DELETE")
+
+	// App role routes
+	r.HandleFunc("/app-roles", createAppRole).Methods("POST")
+	r.HandleFunc("/app-roles", getAppRoles).Methods("GET")
+	r.HandleFunc("/app-roles/{id:[0-9]+}", updateAppRole).Methods("PUT")
+	r.HandleFunc("/app-roles/{id:[0-9]+}", deleteAppRole).Methods("DELETE")
+
 	log.Println("Server starting on :8080")
 	log.Fatal(http.ListenAndServe(":8080", r))
 }
-

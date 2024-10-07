@@ -1,7 +1,5 @@
 func TestCreateApp(t *testing.T) {
-	setUpTestEnvironment()
-	defer tearDownTestEnvironment()
-
+	clearDatabase()
 	requestBody := []byte(`{"name":"testapp","description":"Test app","git_hash":"abcdef","ip_port":"10.0.0.1:8080","endpoint":"/api","version":"1.0","workspace_id":1}`)
 	req, err := http.NewRequest("POST", "/apps", bytes.NewBuffer(requestBody))
 	if err != nil {

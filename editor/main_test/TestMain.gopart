@@ -1,12 +1,14 @@
 func TestMain(m *testing.M) {
 	// Set up
-	setUpTestEnvironment()
+	setupTestDB()
+	ipPool = NewIPPool()
 
 	// Run tests
 	code := m.Run()
 
 	// Tear down
-	tearDownTestEnvironment()
+	tearDownTestDB()
 
 	os.Exit(code)
 }
+

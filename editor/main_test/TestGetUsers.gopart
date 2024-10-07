@@ -1,7 +1,5 @@
 func TestGetUsers(t *testing.T) {
-	setUpTestEnvironment()
-	defer tearDownTestEnvironment()
-
+	clearDatabase()
 	// Insert a test user
 	_, err := db.Exec("INSERT INTO users (username, password) VALUES (?, ?)", "testuser@example.com", "hashedpassword")
 	if err != nil {

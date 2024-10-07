@@ -1,0 +1,17 @@
+func updateWorkspaceRole(w http.ResponseWriter, r *http.Request) {
+	params := mux.Vars(r)
+	var role WorkspaceRole
+	if err := json.NewDecoder(r.Body).Decode(&role); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	_, err := db.Exec("UPDATE workspace_roles SET user_id = ?, role = ?, workspace_id = ? WHERE id = ?",
+		role.UserID, role.Role, role.WorkspaceID, params["id"])
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	json.NewEncoder(w).Encode(role)
+}

@@ -1,7 +1,5 @@
 func TestGetWorkspaces(t *testing.T) {
-	setUpTestEnvironment()
-	defer tearDownTestEnvironment()
-
+	clearDatabase()
 	// Insert test workspaces
 	_, err := db.Exec("INSERT INTO workspaces (name, user_id, subdomain, ips) VALUES (?, ?, ?, ?)", "workspace1", 1, "subdomain1", "10.0.0.1")
 	if err != nil {

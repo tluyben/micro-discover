@@ -1,7 +1,5 @@
 func TestGetApps(t *testing.T) {
-	setUpTestEnvironment()
-	defer tearDownTestEnvironment()
-
+	clearDatabase()
 	// Insert a test app
 	_, err := db.Exec("INSERT INTO apps (name, description, git_hash, ip_port, endpoint, version, workspace_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
 		"testapp", "Test app", "abcdef", "10.0.0.1:8080", "/api", "1.0", 1)

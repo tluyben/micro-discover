@@ -1,0 +1,20 @@
+func createWorkspaceRole(w http.ResponseWriter, r *http.Request) {
+	var role WorkspaceRole
+	if err := json.NewDecoder(r.Body).Decode(&role); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	result, err := db.Exec("INSERT INTO workspace_roles (user_id, role, workspace_id) VALUES (?, ?, ?)",
+		role.UserID, role.Role, role.WorkspaceID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	id, _ := result.LastInsertId()
+	role.ID = int(id)
+
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(role)
+}

@@ -1,4 +1,5 @@
 func TestDeleteUser(t *testing.T) {
+	clearDatabase()
 	// Create a test user first
 	user := User{Username: "testuser@example.com", Password: "testpassword"}
 	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)

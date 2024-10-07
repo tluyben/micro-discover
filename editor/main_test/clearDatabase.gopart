@@ -1,0 +1,6 @@
+func clearDatabase() {
+	db.Exec("DELETE FROM apps")
+	db.Exec("DELETE FROM workspaces")
+	db.Exec("DELETE FROM users")
+}
+

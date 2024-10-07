@@ -4,3 +4,4 @@ func tearDownTestEnvironment() {
 	}
 	os.Remove("./testdiscovery.db")
 }
+

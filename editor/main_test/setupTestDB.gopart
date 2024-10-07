@@ -1,0 +1,9 @@
+func setupTestDB() {
+	os.Remove("./testdiscovery.db")
+	var err error
+	db, err = initDB("./testdiscovery.db")
+	if err != nil {
+		panic(err)
+	}
+}
+
