@@ -1,183 +1,129 @@
-# User Service 👤
+# 👤 User Service API Documentation
 
-The User Service manages user accounts and authentication for the micro-discover platform.
+The User Service provides endpoints for managing user accounts in the micro-discover platform.
 
-## Endpoints 🛣️
+## 📋 Endpoints
 
-### 1. Create User 🆕
+### 🆕 Create User
 
-**POST** `/users`
+- **URL**: `/users`
+- **Method**: `POST`
+- **Description**: Create a new user account
 
-Creates a new user account.
+#### Request Body
 
-**Request Body:**
 ```json
 {
-  "username": "john.doe@example.com",
-  "password": "securePassword123",
-  "firstName": "John",
-  "lastName": "Doe"
+  "username": "user@example.com",
+  "password": "securepassword123"
 }
 ```
 
-**Response:**
-```json
-{
-  "id": 1,
-  "username": "john.doe@example.com",
-  "firstName": "John",
-  "lastName": "Doe",
-  "createdAt": "2023-06-15T10:30:00Z"
-}
-```
+#### Response
 
-### 2. Get User 🔍
-
-**GET** `/users/{id}`
-
-Retrieves user information by ID.
-
-**Response:**
 ```json
 {
   "id": 1,
-  "username": "john.doe@example.com",
-  "firstName": "John",
-  "lastName": "Doe",
-  "createdAt": "2023-06-15T10:30:00Z"
+  "username": "user@example.com"
 }
 ```
 
-### 3. Update User ✏️
+### 📖 Get Users
 
-**PUT** `/users/{id}`
+- **URL**: `/users`
+- **Method**: `GET`
+- **Description**: Retrieve a list of all users
 
-Updates user information.
+#### Response
 
-**Request Body:**
-```json
-{
-  "firstName": "Johnny",
-  "lastName": "Doe"
-}
-```
-
-**Response:**
-```json
-{
-  "id": 1,
-  "username": "john.doe@example.com",
-  "firstName": "Johnny",
-  "lastName": "Doe",
-  "updatedAt": "2023-06-16T14:45:00Z"
-}
-```
-
-### 4. Delete User ❌
-
-**DELETE** `/users/{id}`
-
-Deletes a user account.
-
-**Response:**
-```
-204 No Content
-```
-
-### 5. User Login 🔐
-
-**POST** `/login`
-
-Authenticates a user and returns a JWT token.
-
-**Request Body:**
-```json
-{
-  "username": "john.doe@example.com",
-  "password": "securePassword123"
-}
-```
-
-**Response:**
-```json
-{
-  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "expiresAt": "2023-06-17T10:30:00Z"
-}
-```
-
-### 6. Get All Users 📋
-
-**GET** `/users`
-
-Retrieves a list of all users (admin only).
-
-**Response:**
 ```json
 [
   {
     "id": 1,
-    "username": "john.doe@example.com",
-    "firstName": "John",
-    "lastName": "Doe",
-    "createdAt": "2023-06-15T10:30:00Z"
+    "username": "user1@example.com"
   },
   {
     "id": 2,
-    "username": "jane.smith@example.com",
-    "firstName": "Jane",
-    "lastName": "Smith",
-    "createdAt": "2023-06-16T09:15:00Z"
+    "username": "user2@example.com"
   }
 ]
 ```
 
-## User Model 📊
+### 🔍 Get User
 
-```go
-type User struct {
-    ID        int       `json:"id"`
-    Username  string    `json:"username"`
-    Password  string    `json:"-"` // Not returned in JSON responses
-    FirstName string    `json:"firstName"`
-    LastName  string    `json:"lastName"`
-    CreatedAt time.Time `json:"createdAt"`
-    UpdatedAt time.Time `json:"updatedAt"`
-}
-```
+- **URL**: `/users/{id}`
+- **Method**: `GET`
+- **Description**: Retrieve a specific user by ID
 
-## Authentication 🔒
-
-All endpoints except `Create User` and `User Login` require a valid JWT token in the `Authorization` header:
-
-```
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-```
-
-## Error Handling ⚠️
-
-The service returns appropriate HTTP status codes and error messages in JSON format:
+#### Response
 
 ```json
 {
-  "error": "Invalid credentials",
-  "code": "AUTH_001"
+  "id": 1,
+  "username": "user@example.com"
 }
 ```
 
-Common error codes:
-- `AUTH_001`: Authentication failed
-- `USER_001`: User not found
-- `USER_002`: Invalid input data
+### 🔄 Update User
 
-## Rate Limiting 🚦
+- **URL**: `/users/{id}`
+- **Method**: `PUT`
+- **Description**: Update an existing user's information
 
-The service implements rate limiting to prevent abuse. Limits are set to 100 requests per minute per IP address.
+#### Request Body
 
-## Logging and Monitoring 📈
+```json
+{
+  "username": "updateduser@example.com",
+  "password": "newpassword123"
+}
+```
 
-All API calls are logged for auditing purposes. The service integrates with Prometheus for monitoring and alerting.
+#### Response
 
----
+```json
+{
+  "id": 1,
+  "username": "updateduser@example.com"
+}
+```
 
-This completes the documentation for the User Service in the micro-discover platform. It includes all endpoints, data models, authentication details, error handling, and other important information for developers working with this service.
+### ❌ Delete User
+
+- **URL**: `/users/{id}`
+- **Method**: `DELETE`
+- **Description**: Delete a user account
+
+#### Response
+
+- Status: 204 No Content
+
+## 📝 Notes
+
+- All endpoints return appropriate HTTP status codes (200 for success, 400 for bad requests, 404 for not found, etc.)
+- Passwords are hashed before storing in the database
+- The service uses email addresses as usernames
+- User IDs are automatically generated upon creation
+- Password is never returned in responses for security reasons
+
+## 🔐 Authentication
+
+Currently, the User Service does not implement authentication. Future versions may include token-based authentication for secure access to user data.
+
+## 🛠 Error Handling
+
+Errors are returned with appropriate HTTP status codes and error messages in the response body. For example:
+
+```json
+{
+  "error": "Invalid email address"
+}
+```
+
+Common error scenarios include:
+- Invalid email format
+- Duplicate email addresses
+- User not found
+- Internal server errors
+
+Always check the HTTP status code and response body for error details when interacting with the API.

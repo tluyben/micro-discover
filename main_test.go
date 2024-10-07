@@ -15,48 +15,6 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-func tearDownTestEnvironment() {
-	if db != nil {
-		db.Close()
-	}
-	os.Remove("./testdiscovery.db")
-}
-
-func TestCreateAppRole(t *testing.T) {
-	clearDatabase()
-	requestBody := []byte(`{"user_id":1,"role":"developer","app_id":1}`)
-	req, err := http.NewRequest("POST", "/app-roles", bytes.NewBuffer(requestBody))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	rr := httptest.NewRecorder()
-	router := mux.NewRouter()
-	router.HandleFunc("/app-roles", createAppRole).Methods("POST")
-	router.ServeHTTP(rr, req)
-
-	if status := rr.Code; status != http.StatusCreated {
-		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusCreated)
-	}
-
-	var response AppRole
-	err = json.Unmarshal(rr.Body.Bytes(), &response)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if response.Role != "developer" {
-		t.Errorf("handler returned unexpected role: got %v want %v", response.Role, "developer")
-	}
-}
-
-func tearDownTestDB() {
-	if db != nil {
-		db.Close()
-	}
-	// os.Remove("./testdiscovery.db")
-}
-
 func TestGetUsers(t *testing.T) {
 	clearDatabase()
 	// Insert a test user
@@ -127,12 +85,6 @@ func TestGetWorkspaces(t *testing.T) {
 	}
 }
 
-func clearDatabase() {
-	db.Exec("DELETE FROM apps")
-	db.Exec("DELETE FROM workspaces")
-	db.Exec("DELETE FROM users")
-}
-
 func TestCreateWorkspace(t *testing.T) {
 	clearDatabase()
 	requestBody := []byte(`{"name":"testworkspace","user_id":1}`)
@@ -158,76 +110,6 @@ func TestCreateWorkspace(t *testing.T) {
 
 	if response.Name != "testworkspace" {
 		t.Errorf("handler returned unexpected workspace name: got %v want %v", response.Name, "testworkspace")
-	}
-}
-
-func TestCreateUser(t *testing.T) {
-	clearDatabase()
-	requestBody := []byte(`{"username":"test@example.com","password":"testpassword"}`)
-	req, err := http.NewRequest("POST", "/users", bytes.NewBuffer(requestBody))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	rr := httptest.NewRecorder()
-	router := mux.NewRouter()
-	router.HandleFunc("/users", createUser).Methods("POST")
-	router.ServeHTTP(rr, req)
-
-	if status := rr.Code; status != http.StatusCreated {
-		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusCreated)
-	}
-
-	var response User
-	err = json.Unmarshal(rr.Body.Bytes(), &response)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if response.Username != "test@example.com" {
-		t.Errorf("handler returned unexpected username: got %v want %v", response.Username, "test@example.com")
-	}
-}
-
-func TestMain(m *testing.M) {
-	// Set up
-	setupTestDB()
-	ipPool = NewIPPool()
-
-	// Run tests
-	code := m.Run()
-
-	// Tear down
-	tearDownTestDB()
-
-	os.Exit(code)
-}
-
-func TestCreateWorkspaceRole(t *testing.T) {
-	clearDatabase()
-	requestBody := []byte(`{"user_id":1,"role":"admin","workspace_id":1}`)
-	req, err := http.NewRequest("POST", "/workspace-roles", bytes.NewBuffer(requestBody))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	rr := httptest.NewRecorder()
-	router := mux.NewRouter()
-	router.HandleFunc("/workspace-roles", createWorkspaceRole).Methods("POST")
-	router.ServeHTTP(rr, req)
-
-	if status := rr.Code; status != http.StatusCreated {
-		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusCreated)
-	}
-
-	var response WorkspaceRole
-	err = json.Unmarshal(rr.Body.Bytes(), &response)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if response.Role != "admin" {
-		t.Errorf("handler returned unexpected role: got %v want %v", response.Role, "admin")
 	}
 }
 
@@ -265,6 +147,57 @@ func TestDeleteWorkspace(t *testing.T) {
 	}
 	if count != 0 {
 		t.Errorf("workspace was not deleted: got %v records, want 0", count)
+	}
+}
+
+func setupTestDB() {
+	os.Remove("./testdiscovery.db")
+	var err error
+	db, err = initDB("./testdiscovery.db")
+	if err != nil {
+		panic(err)
+	}
+}
+
+func tearDownTestEnvironment() {
+	if db != nil {
+		db.Close()
+	}
+	os.Remove("./testdiscovery.db")
+}
+
+func tearDownTestDB() {
+	if db != nil {
+		db.Close()
+	}
+	// os.Remove("./testdiscovery.db")
+}
+
+func TestCreateWorkspaceRole(t *testing.T) {
+	clearDatabase()
+	requestBody := []byte(`{"user_id":1,"role":"admin","workspace_id":1}`)
+	req, err := http.NewRequest("POST", "/workspace-roles", bytes.NewBuffer(requestBody))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rr := httptest.NewRecorder()
+	router := mux.NewRouter()
+	router.HandleFunc("/workspace-roles", createWorkspaceRole).Methods("POST")
+	router.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusCreated {
+		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusCreated)
+	}
+
+	var response WorkspaceRole
+	err = json.Unmarshal(rr.Body.Bytes(), &response)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if response.Role != "admin" {
+		t.Errorf("handler returned unexpected role: got %v want %v", response.Role, "admin")
 	}
 }
 
@@ -308,43 +241,6 @@ func TestDeleteApp(t *testing.T) {
 	}
 	if count != 0 {
 		t.Errorf("app was not deleted: got %v records, want 0", count)
-	}
-}
-
-func TestDeleteUser(t *testing.T) {
-	clearDatabase()
-	// Create a test user first
-	user := User{Username: "testuser@example.com", Password: "testpassword"}
-	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
-	result, err := db.Exec("INSERT INTO users (username, password) VALUES (?, ?)", user.Username, string(hashedPassword))
-	if err != nil {
-		t.Fatal(err)
-	}
-	userID, _ := result.LastInsertId()
-
-	// Now delete the user
-	req, err := http.NewRequest("DELETE", fmt.Sprintf("/users/%d", userID), nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	rr := httptest.NewRecorder()
-	router := mux.NewRouter()
-	router.HandleFunc("/users/{id:[0-9]+}", deleteUser).Methods("DELETE")
-	router.ServeHTTP(rr, req)
-
-	if status := rr.Code; status != http.StatusNoContent {
-		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusNoContent)
-	}
-
-	// Verify that the user was deleted
-	var count int
-	err = db.QueryRow("SELECT COUNT(*) FROM users WHERE id = ?", userID).Scan(&count)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if count != 0 {
-		t.Errorf("user was not deleted: got %v records, want 0", count)
 	}
 }
 
@@ -393,12 +289,149 @@ func TestUpdateApp(t *testing.T) {
 	}
 }
 
-func setupTestDB() {
-	os.Remove("./testdiscovery.db")
-	var err error
-	db, err = initDB("./testdiscovery.db")
+func TestCreateApp(t *testing.T) {
+	clearDatabase()
+	requestBody := []byte(`{"name":"testapp","description":"Test app","git_hash":"abcdef","ip_port":"10.0.0.1:8080","endpoint":"/api","version":"1.0","workspace_id":1,"input_schema":"test input","output_schema":"test output"}`)
+	req, err := http.NewRequest("POST", "/apps", bytes.NewBuffer(requestBody))
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
+	}
+
+	rr := httptest.NewRecorder()
+	router := mux.NewRouter()
+	router.HandleFunc("/apps", createApp).Methods("POST")
+	router.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusCreated {
+		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusCreated)
+	}
+
+	var response App
+	err = json.Unmarshal(rr.Body.Bytes(), &response)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if response.Name != "testapp" {
+		t.Errorf("handler returned unexpected app name: got %v want %v", response.Name, "testapp")
+	}
+
+	if response.InputSchema != "test input" {
+		t.Errorf("handler returned unexpected input schema: got %v want %v", response.InputSchema, "test input")
+	}
+
+	if response.OutputSchema != "test output" {
+		t.Errorf("handler returned unexpected output schema: got %v want %v", response.OutputSchema, "test output")
+	}
+}
+
+func TestUpdateUser(t *testing.T) {
+	clearDatabase()
+	// Create a test user first
+	user := User{Username: "testuser@example.com", Password: "testpassword"}
+	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
+	result, err := db.Exec("INSERT INTO users (username, password) VALUES (?, ?)", user.Username, string(hashedPassword))
+	if err != nil {
+		t.Fatal(err)
+	}
+	userID, _ := result.LastInsertId()
+
+	// Now update the user
+	updatedUser := User{Username: "updateduser@example.com", Password: "updatedpassword"}
+	requestBody, _ := json.Marshal(updatedUser)
+	req, err := http.NewRequest("PUT", fmt.Sprintf("/users/%d", userID), bytes.NewBuffer(requestBody))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rr := httptest.NewRecorder()
+	router := mux.NewRouter()
+	router.HandleFunc("/users/{id:[0-9]+}", updateUser).Methods("PUT")
+	router.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusOK {
+		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
+	}
+
+	// Verify that the user was updated
+	var updatedUserFromDB User
+	err = db.QueryRow("SELECT username FROM users WHERE id = ?", userID).Scan(&updatedUserFromDB.Username)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if updatedUserFromDB.Username != updatedUser.Username {
+		t.Errorf("user was not updated correctly: got %v, want %v", updatedUserFromDB.Username, updatedUser.Username)
+	}
+}
+
+func TestCreateAppRole(t *testing.T) {
+	clearDatabase()
+	requestBody := []byte(`{"user_id":1,"role":"developer","app_id":1}`)
+	req, err := http.NewRequest("POST", "/app-roles", bytes.NewBuffer(requestBody))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rr := httptest.NewRecorder()
+	router := mux.NewRouter()
+	router.HandleFunc("/app-roles", createAppRole).Methods("POST")
+	router.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusCreated {
+		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusCreated)
+	}
+
+	var response AppRole
+	err = json.Unmarshal(rr.Body.Bytes(), &response)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if response.Role != "developer" {
+		t.Errorf("handler returned unexpected role: got %v want %v", response.Role, "developer")
+	}
+}
+
+func clearDatabase() {
+	db.Exec("DELETE FROM apps")
+	db.Exec("DELETE FROM workspaces")
+	db.Exec("DELETE FROM users")
+}
+
+func TestDeleteUser(t *testing.T) {
+	clearDatabase()
+	// Create a test user first
+	user := User{Username: "testuser@example.com", Password: "testpassword"}
+	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
+	result, err := db.Exec("INSERT INTO users (username, password) VALUES (?, ?)", user.Username, string(hashedPassword))
+	if err != nil {
+		t.Fatal(err)
+	}
+	userID, _ := result.LastInsertId()
+
+	// Now delete the user
+	req, err := http.NewRequest("DELETE", fmt.Sprintf("/users/%d", userID), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rr := httptest.NewRecorder()
+	router := mux.NewRouter()
+	router.HandleFunc("/users/{id:[0-9]+}", deleteUser).Methods("DELETE")
+	router.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusNoContent {
+		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusNoContent)
+	}
+
+	// Verify that the user was deleted
+	var count int
+	err = db.QueryRow("SELECT COUNT(*) FROM users WHERE id = ?", userID).Scan(&count)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if count != 0 {
+		t.Errorf("user was not deleted: got %v records, want 0", count)
 	}
 }
 
@@ -483,77 +516,44 @@ func TestGetApps(t *testing.T) {
 	}
 }
 
-func TestCreateApp(t *testing.T) {
+func TestCreateUser(t *testing.T) {
 	clearDatabase()
-	requestBody := []byte(`{"name":"testapp","description":"Test app","git_hash":"abcdef","ip_port":"10.0.0.1:8080","endpoint":"/api","version":"1.0","workspace_id":1,"input_schema":"test input","output_schema":"test output"}`)
-	req, err := http.NewRequest("POST", "/apps", bytes.NewBuffer(requestBody))
+	requestBody := []byte(`{"username":"test@example.com","password":"testpassword"}`)
+	req, err := http.NewRequest("POST", "/users", bytes.NewBuffer(requestBody))
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	rr := httptest.NewRecorder()
 	router := mux.NewRouter()
-	router.HandleFunc("/apps", createApp).Methods("POST")
+	router.HandleFunc("/users", createUser).Methods("POST")
 	router.ServeHTTP(rr, req)
 
 	if status := rr.Code; status != http.StatusCreated {
 		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusCreated)
 	}
 
-	var response App
+	var response User
 	err = json.Unmarshal(rr.Body.Bytes(), &response)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if response.Name != "testapp" {
-		t.Errorf("handler returned unexpected app name: got %v want %v", response.Name, "testapp")
-	}
-
-	if response.InputSchema != "test input" {
-		t.Errorf("handler returned unexpected input schema: got %v want %v", response.InputSchema, "test input")
-	}
-
-	if response.OutputSchema != "test output" {
-		t.Errorf("handler returned unexpected output schema: got %v want %v", response.OutputSchema, "test output")
+	if response.Username != "test@example.com" {
+		t.Errorf("handler returned unexpected username: got %v want %v", response.Username, "test@example.com")
 	}
 }
 
-func TestUpdateUser(t *testing.T) {
-	clearDatabase()
-	// Create a test user first
-	user := User{Username: "testuser@example.com", Password: "testpassword"}
-	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
-	result, err := db.Exec("INSERT INTO users (username, password) VALUES (?, ?)", user.Username, string(hashedPassword))
-	if err != nil {
-		t.Fatal(err)
-	}
-	userID, _ := result.LastInsertId()
+func TestMain(m *testing.M) {
+	// Set up
+	setupTestDB()
+	ipPool = NewIPPool()
 
-	// Now update the user
-	updatedUser := User{Username: "updateduser@example.com", Password: "updatedpassword"}
-	requestBody, _ := json.Marshal(updatedUser)
-	req, err := http.NewRequest("PUT", fmt.Sprintf("/users/%d", userID), bytes.NewBuffer(requestBody))
-	if err != nil {
-		t.Fatal(err)
-	}
+	// Run tests
+	code := m.Run()
 
-	rr := httptest.NewRecorder()
-	router := mux.NewRouter()
-	router.HandleFunc("/users/{id:[0-9]+}", updateUser).Methods("PUT")
-	router.ServeHTTP(rr, req)
+	// Tear down
+	tearDownTestDB()
 
-	if status := rr.Code; status != http.StatusOK {
-		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
-	}
-
-	// Verify that the user was updated
-	var updatedUserFromDB User
-	err = db.QueryRow("SELECT username FROM users WHERE id = ?", userID).Scan(&updatedUserFromDB.Username)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if updatedUserFromDB.Username != updatedUser.Username {
-		t.Errorf("user was not updated correctly: got %v, want %v", updatedUserFromDB.Username, updatedUser.Username)
-	}
+	os.Exit(code)
 }
