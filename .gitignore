@@ -1,5 +1,6 @@
 .env
 .env.local
 discovery-service
+micro-discover
 ./discovery.db
 ./testdiscovery.db
