@@ -47,7 +47,7 @@ func tearDownTestDB() {
 	if db != nil {
 		db.Close()
 	}
-	os.Remove("./testdiscovery.db")
+	// os.Remove("./testdiscovery.db")
 }
 func _setUpTestEnvironment() {
 	db = _initTestDB()
