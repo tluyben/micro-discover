@@ -1,170 +1,106 @@
-# Discovery Service for Sandboxed Applications
+# micro-discover
 
-## Overview
-
-The Discovery Service is a Go-based application designed to manage users, workspaces, and applications in a sandboxed environment. It provides a RESTful API for creating, reading, updating, and deleting (CRUD) users, workspaces, and applications. The service uses SQLite for data storage and implements IP allocation and subdomain generation for workspaces.
+micro-discover is a Go-based microservices discovery and management system. It provides a robust API for managing users, workspaces, applications, and role-based access control.
 
 ## Features
 
-- User management with secure password hashing
-- Workspace management with automatic IP allocation and subdomain generation
-- Application management within workspaces
-- RESTful API for all operations
-- SQLite database for persistent storage
-- IP pool management for efficient IP allocation
-- Concurrent-safe operations
+- User Management
+- Workspace Management
+- Application Management
+- Role-Based Access Control
+- IP Pool Management
 
-## Prerequisites
-
-- Go 1.16 or higher
-- SQLite3
-
-## Installation
-
-1. Clone the repository:
-
-   ```
-   git clone https://github.com/yourusername/micro-discover.git
-   cd micro-discover
-   ```
-
-2. Install dependencies:
-
-   ```
-   go get github.com/gorilla/mux
-   go get github.com/mattn/go-sqlite3
-   go get golang.org/x/crypto/bcrypt
-   ```
-
-3. Build the application:
-   ```
-   go build -o micro-discover
-   ```
-
-## Usage
-
-1. Start the service:
-
-   ```
-   ./micro-discover
-   ```
-
-   The service will start on port 8080 and create a SQLite database file named `discovery.db` in the same directory.
-
-2. Use the API endpoints to interact with the service.
-
-## API Endpoints
+## API Documentation
 
 ### Users
 
-- `POST /users`: Create a new user
-- `GET /users`: List all users
-- `GET /users/{id}`: Get a specific user
-- `PUT /users/{id}`: Update a user
-- `DELETE /users/{id}`: Delete a user
+#### Create User
+
+```
+POST /users
+Body: {
+  "username": "user@example.com",
+  "password": "password123"
+}
+```
+
+#### Get Users
+
+```
+GET /users
+```
+
+#### Get User
+
+```
+GET /users/{id}
+```
+
+#### Update User
+
+```
+PUT /users/{id}
+Body: {
+  "username": "updateduser@example.com",
+  "password": "newpassword123"
+}
+```
+
+#### Delete User
+
+```
+DELETE /users/{id}
+```
 
 ### Workspaces
 
-- `POST /workspaces`: Create a new workspace
-- `GET /workspaces`: List all workspaces
-- `GET /workspaces/{id}`: Get a specific workspace
-- `PUT /workspaces/{id}`: Update a workspace
-- `DELETE /workspaces/{id}`: Delete a workspace
+#### Create Workspace
+
+```
+POST /workspaces
+Body: {
+  "name": "My Workspace",
+  "user_id": 1
+}
+```
+
+#### Get Workspaces
+
+```
+GET /workspaces
+```
+
+#### Get Workspace
+
+```
+GET /workspaces/{id}
+```
+
+#### Update Workspace
+
+```
+PUT /workspaces/{id}
+Body: {
+  "name": "Updated Workspace",
+  "user_id": 2
+}
+```
+
+#### Delete Workspace
+
+```
+DELETE /workspaces/{id}
+```
 
 ### Applications
 
-- `POST /apps`: Create a new application
-- `GET /apps`: List all applications
-- `GET /apps/{id}`: Get a specific application
-- `PUT /apps/{id}`: Update an application
-- `DELETE /apps/{id}`: Delete an application
+#### Create Application
 
-## Data Models
-
-### User
-
-```json
-{
-  "id": 1,
-  "username": "user@example.com"
-}
 ```
-
-### Workspace
-
-```json
-{
-  "id": 1,
-  "name": "example_workspace",
-  "user_id": 1,
-  "subdomain": "abcd1234",
-  "ips": ["10.0.0.1"]
-}
-```
-
-### Application
-
-```json
-{
-  "id": 1,
-  "name": "example_app",
-  "description": "An example application",
-  "git_hash": "abc123def456",
-  "ip_port": "10.0.0.1:8080",
-  "endpoint": "/api",
-  "version": "1.0.0",
-  "workspace_id": 1
-}
-```
-
-## Example Requests
-
-### Create a User
-
-```bash
-curl -X POST http://localhost:8080/users -H "Content-Type: application/json" -d '{"username": "user@example.com", "password": "securepassword"}'
-```
-
-Response:
-
-```json
-{
-  "id": 1,
-  "username": "user@example.com"
-}
-```
-
-### Create a Workspace
-
-```bash
-curl -X POST http://localhost:8080/workspaces -H "Content-Type: application/json" -d '{"name": "myworkspace", "user_id": 1}'
-```
-
-Response:
-
-```json
-{
-  "id": 1,
-  "name": "myworkspace",
-  "user_id": 1,
-  "subdomain": "abcd1234",
-  "ips": ["10.0.0.1"]
-}
-```
-
-### Create an Application
-
-```bash
-curl -X POST http://localhost:8080/apps -H "Content-Type: application/json" -d '{"name": "myapp", "description": "My first app", "git_hash": "abc123", "ip_port": "10.0.0.1:8080", "endpoint": "/api", "version": "1.0", "workspace_id": 1}'
-```
-
-Response:
-
-```json
-{
-  "id": 1,
-  "name": "myapp",
-  "description": "My first app",
+POST /apps
+Body: {
+  "name": "My App",
+  "description": "Description of my app",
   "git_hash": "abc123",
   "ip_port": "10.0.0.1:8080",
   "endpoint": "/api",
@@ -173,80 +109,122 @@ Response:
 }
 ```
 
-### Get All Users
+#### Get Applications
 
-```bash
-curl http://localhost:8080/users
+```
+GET /apps
 ```
 
-Response:
+#### Get Application
 
-```json
-[
-  {
-    "id": 1,
-    "username": "user@example.com"
-  }
-]
+```
+GET /apps/{id}
 ```
 
-### Get All Workspaces
+#### Update Application
 
-```bash
-curl http://localhost:8080/workspaces
+```
+PUT /apps/{id}
+Body: {
+  "name": "Updated App",
+  "description": "Updated description",
+  "git_hash": "def456",
+  "ip_port": "10.0.0.2:8080",
+  "endpoint": "/api/v2",
+  "version": "2.0",
+  "workspace_id": 2
+}
 ```
 
-Response:
+#### Delete Application
 
-```json
-[
-  {
-    "id": 1,
-    "name": "myworkspace",
-    "user_id": 1,
-    "subdomain": "abcd1234",
-    "ips": ["10.0.0.1"]
-  }
-]
+```
+DELETE /apps/{id}
 ```
 
-### Get All Applications
+### Role-Based Access Control
 
-```bash
-curl http://localhost:8080/apps
+#### Create Workspace Role
+
+```
+POST /workspace-roles
+Body: {
+  "user_id": 1,
+  "role": "admin",
+  "workspace_id": 1
+}
 ```
 
-Response:
+#### Get Workspace Roles
 
-```json
-[
-  {
-    "id": 1,
-    "name": "myapp",
-    "description": "My first app",
-    "git_hash": "abc123",
-    "ip_port": "10.0.0.1:8080",
-    "endpoint": "/api",
-    "version": "1.0",
-    "workspace_id": 1
-  }
-]
+```
+GET /workspace-roles
 ```
 
-## Security Considerations
+#### Update Workspace Role
 
-- The service uses bcrypt for password hashing.
-- IP allocation is managed to prevent conflicts.
-- Subdomains are generated randomly and checked for uniqueness.
-- The service does not implement authentication or authorization for API endpoints. In a production environment, you should add appropriate security measures.
+```
+PUT /workspace-roles/{id}
+Body: {
+  "user_id": 1,
+  "role": "developer",
+  "workspace_id": 1
+}
+```
 
-## Limitations and Future Improvements
+#### Delete Workspace Role
 
-- The service uses SQLite, which may not be suitable for high-concurrency scenarios. Consider using a more robust database for production use.
-- Error handling could be improved for better debugging and user feedback.
-- Adding logging would be beneficial for monitoring and troubleshooting.
-- Implementing rate limiting would help prevent abuse of the API.
-- Adding metrics and health check endpoints would improve observability.
+```
+DELETE /workspace-roles/{id}
+```
+
+#### Create Application Role
+
+```
+POST /app-roles
+Body: {
+  "user_id": 1,
+  "role": "developer",
+  "app_id": 1
+}
+```
+
+#### Get Application Roles
+
+```
+GET /app-roles
+```
+
+#### Update Application Role
+
+```
+PUT /app-roles/{id}
+Body: {
+  "user_id": 1,
+  "role": "admin",
+  "app_id": 1
+}
+```
+
+#### Delete Application Role
+
+```
+DELETE /app-roles/{id}
+```
+
+## IP Pool Management
+
+The system includes an IP Pool management feature that automatically allocates and releases IP addresses for workspaces.
+
+## Getting Started
+
+1. Clone the repository
+2. Install dependencies: `go mod tidy`
+3. Run the server: `go run main.go`
+
+## Testing
+
+Run the tests using: `go test ./...`
 
 ## Contributing
 
@@ -254,4 +232,4 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+This project is licensed under the MIT License.
