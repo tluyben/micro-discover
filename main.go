@@ -72,6 +72,98 @@ type IPPool struct {
 	mutex     sync.Mutex
 }
 
+func getApp(w http.ResponseWriter, r *http.Request) {
+	params := mux.Vars(r)
+	var app App
+	err := db.QueryRow("SELECT id, name, description, git_hash, ip_port, endpoint, version, workspace_id, input_schema, output_schema FROM apps WHERE id = ?", params["id"]).
+		Scan(&app.ID, &app.Name, &app.Description, &app.GitHash, &app.IPPort, &app.Endpoint, &app.Version, &app.WorkspaceID, &app.InputSchema, &app.OutputSchema)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+	json.NewEncoder(w).Encode(app)
+}
+
+func deleteWorkspace(w http.ResponseWriter, r *http.Request) {
+	params := mux.Vars(r)
+
+	// Get the workspace's IPs before deleting
+	var ips string
+	err := db.QueryRow("SELECT ips FROM workspaces WHERE id = ?", params["id"]).Scan(&ips)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+
+	// Delete the workspace
+	_, err = db.Exec("DELETE FROM workspaces WHERE id = ?", params["id"])
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Release the IPs
+	for _, ip := range strings.Split(ips, ",") {
+		ipPool.ReleaseIP(ip)
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func NewIPPool() *IPPool {
+	pool := &IPPool{
+		available: make([]net.IP, 0),
+		inUse:     make(map[string]bool),
+	}
+
+	// Generate IPs for 10.0.0.0/16 and 172.16.0.0/16
+	for i := 0; i <= 255; i++ {
+		for j := 0; j <= 255; j++ {
+			pool.available = append(pool.available, net.IPv4(10, 0, byte(i), byte(j)))
+			pool.available = append(pool.available, net.IPv4(172, 16, byte(i), byte(j)))
+		}
+	}
+
+	return pool
+}
+
+func (p *IPPool) AllocateIP() (string, error) {
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
+
+	if len(p.available) == 0 {
+		return "", fmt.Errorf("no available IPs")
+	}
+
+	ip := p.available[0]
+	p.available = p.available[1:]
+	ipStr := ip.String()
+	p.inUse[ipStr] = true
+
+	return ipStr, nil
+}
+
+func getUsers(w http.ResponseWriter, r *http.Request) {
+	rows, err := db.Query("SELECT id, username FROM users")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	users := []User{}
+	for rows.Next() {
+		var u User
+		if err := rows.Scan(&u.ID, &u.Username); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		users = append(users, u)
+	}
+
+	json.NewEncoder(w).Encode(users)
+}
+
 func getWorkspaceRoles(w http.ResponseWriter, r *http.Request) {
 	rows, err := db.Query("SELECT id, user_id, role, workspace_id FROM workspace_roles")
 	if err != nil {
@@ -91,6 +183,68 @@ func getWorkspaceRoles(w http.ResponseWriter, r *http.Request) {
 	}
 
 	json.NewEncoder(w).Encode(roles)
+}
+
+func createWorkspaceRole(w http.ResponseWriter, r *http.Request) {
+	var role WorkspaceRole
+	if err := json.NewDecoder(r.Body).Decode(&role); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	result, err := db.Exec("INSERT INTO workspace_roles (user_id, role, workspace_id) VALUES (?, ?, ?)",
+		role.UserID, role.Role, role.WorkspaceID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	id, _ := result.LastInsertId()
+	role.ID = int(id)
+
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(role)
+}
+
+func (p *IPPool) ReleaseIP(ip string) {
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
+
+	if p.inUse[ip] {
+		delete(p.inUse, ip)
+		p.available = append(p.available, net.ParseIP(ip))
+	}
+}
+
+func createApp(w http.ResponseWriter, r *http.Request) {
+	var app App
+	if err := json.NewDecoder(r.Body).Decode(&app); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	result, err := db.Exec("INSERT INTO apps (name, description, git_hash, ip_port, endpoint, version, workspace_id, input_schema, output_schema) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+		app.Name, app.Description, app.GitHash, app.IPPort, app.Endpoint, app.Version, app.WorkspaceID, app.InputSchema, app.OutputSchema)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	id, _ := result.LastInsertId()
+	app.ID = int(id)
+
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(app)
+}
+
+func deleteAppRole(w http.ResponseWriter, r *http.Request) {
+	params := mux.Vars(r)
+	_, err := db.Exec("DELETE FROM app_roles WHERE id = ?", params["id"])
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func createUser(w http.ResponseWriter, r *http.Request) {
@@ -142,16 +296,6 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(user)
 }
 
-func deleteWorkspaceRole(w http.ResponseWriter, r *http.Request) {
-	params := mux.Vars(r)
-	_, err := db.Exec("DELETE FROM workspace_roles WHERE id = ?", params["id"])
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	w.WriteHeader(http.StatusNoContent)
-}
-
 func updateUser(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 	var user User
@@ -183,26 +327,95 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(user)
 }
 
-func getUser(w http.ResponseWriter, r *http.Request) {
-	params := mux.Vars(r)
-	var user User
-	err := db.QueryRow("SELECT id, username FROM users WHERE id = ?", params["id"]).Scan(&user.ID, &user.Username)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusNotFound)
-		return
+func generateSubdomain() string {
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	const chars = "abcdefghijklmnopqrstuvwxyz0123456789"
+	for {
+		result := make([]byte, 8)
+		for i := range result {
+			result[i] = chars[rand.Intn(len(chars))]
+		}
+		subdomain := string(result)
+		if !subdomains[subdomain] {
+			subdomains[subdomain] = true
+			return subdomain
+		}
 	}
-	json.NewEncoder(w).Encode(user)
 }
 
-func createWorkspaceRole(w http.ResponseWriter, r *http.Request) {
-	var role WorkspaceRole
+func updateApp(w http.ResponseWriter, r *http.Request) {
+	params := mux.Vars(r)
+	var app App
+	if err := json.NewDecoder(r.Body).Decode(&app); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	_, err := db.Exec("UPDATE apps SET name = ?, description = ?, git_hash = ?, ip_port = ?, endpoint = ?, version = ?, workspace_id = ?, input_schema = ?, output_schema = ? WHERE id = ?",
+		app.Name, app.Description, app.GitHash, app.IPPort, app.Endpoint, app.Version, app.WorkspaceID, app.InputSchema, app.OutputSchema, params["id"])
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	json.NewEncoder(w).Encode(app)
+}
+
+func updateWorkspace(w http.ResponseWriter, r *http.Request) {
+	params := mux.Vars(r)
+	var workspace Workspace
+	if err := json.NewDecoder(r.Body).Decode(&workspace); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	_, err := db.Exec("UPDATE workspaces SET name = ?, user_id = ? WHERE id = ?",
+		workspace.Name, workspace.UserID, params["id"])
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	json.NewEncoder(w).Encode(workspace)
+}
+
+func getApps(w http.ResponseWriter, r *http.Request) {
+	rows, err := db.Query("SELECT id, name, description, git_hash, ip_port, endpoint, version, workspace_id, input_schema, output_schema FROM apps")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	apps := []App{}
+	for rows.Next() {
+		var a App
+		if err := rows.Scan(&a.ID, &a.Name, &a.Description, &a.GitHash, &a.IPPort, &a.Endpoint, &a.Version, &a.WorkspaceID, &a.InputSchema, &a.OutputSchema); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		apps = append(apps, a)
+	}
+
+	json.NewEncoder(w).Encode(apps)
+}
+
+func init() {
+	rand.Seed(time.Now().UnixNano())
+	subdomains = make(map[string]bool)
+}
+
+func createAppRole(w http.ResponseWriter, r *http.Request) {
+	var role AppRole
 	if err := json.NewDecoder(r.Body).Decode(&role); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	result, err := db.Exec("INSERT INTO workspace_roles (user_id, role, workspace_id) VALUES (?, ?, ?)",
-		role.UserID, role.Role, role.WorkspaceID)
+	result, err := db.Exec("INSERT INTO app_roles (user_id, role, app_id) VALUES (?, ?, ?)",
+		role.UserID, role.Role, role.AppID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -212,24 +425,6 @@ func createWorkspaceRole(w http.ResponseWriter, r *http.Request) {
 	role.ID = int(id)
 
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(role)
-}
-
-func updateWorkspaceRole(w http.ResponseWriter, r *http.Request) {
-	params := mux.Vars(r)
-	var role WorkspaceRole
-	if err := json.NewDecoder(r.Body).Decode(&role); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	_, err := db.Exec("UPDATE workspace_roles SET user_id = ?, role = ?, workspace_id = ? WHERE id = ?",
-		role.UserID, role.Role, role.WorkspaceID, params["id"])
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
 	json.NewEncoder(w).Encode(role)
 }
 
@@ -290,159 +485,6 @@ func initDB(dbPath string) (*sql.DB, error) {
 	return db, nil
 }
 
-func getWorkspaces(w http.ResponseWriter, r *http.Request) {
-	rows, err := db.Query("SELECT id, name, user_id, subdomain, ips FROM workspaces")
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	defer rows.Close()
-
-	workspaces := []Workspace{}
-	for rows.Next() {
-		var ws Workspace
-		var ips string
-		if err := rows.Scan(&ws.ID, &ws.Name, &ws.UserID, &ws.Subdomain, &ips); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		ws.IPs = strings.Split(ips, ",")
-		workspaces = append(workspaces, ws)
-	}
-
-	json.NewEncoder(w).Encode(workspaces)
-}
-
-func generateSubdomain() string {
-	mutex.Lock()
-	defer mutex.Unlock()
-
-	const chars = "abcdefghijklmnopqrstuvwxyz0123456789"
-	for {
-		result := make([]byte, 8)
-		for i := range result {
-			result[i] = chars[rand.Intn(len(chars))]
-		}
-		subdomain := string(result)
-		if !subdomains[subdomain] {
-			subdomains[subdomain] = true
-			return subdomain
-		}
-	}
-}
-
-func deleteUser(w http.ResponseWriter, r *http.Request) {
-	params := mux.Vars(r)
-	_, err := db.Exec("DELETE FROM users WHERE id = ?", params["id"])
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	w.WriteHeader(http.StatusNoContent)
-}
-
-func (p *IPPool) ReleaseIP(ip string) {
-	p.mutex.Lock()
-	defer p.mutex.Unlock()
-
-	if p.inUse[ip] {
-		delete(p.inUse, ip)
-		p.available = append(p.available, net.ParseIP(ip))
-	}
-}
-
-func updateApp(w http.ResponseWriter, r *http.Request) {
-	params := mux.Vars(r)
-	var app App
-	if err := json.NewDecoder(r.Body).Decode(&app); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	_, err := db.Exec("UPDATE apps SET name = ?, description = ?, git_hash = ?, ip_port = ?, endpoint = ?, version = ?, workspace_id = ?, input_schema = ?, output_schema = ? WHERE id = ?",
-		app.Name, app.Description, app.GitHash, app.IPPort, app.Endpoint, app.Version, app.WorkspaceID, app.InputSchema, app.OutputSchema, params["id"])
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	json.NewEncoder(w).Encode(app)
-}
-
-func getApp(w http.ResponseWriter, r *http.Request) {
-	params := mux.Vars(r)
-	var app App
-	err := db.QueryRow("SELECT id, name, description, git_hash, ip_port, endpoint, version, workspace_id, input_schema, output_schema FROM apps WHERE id = ?", params["id"]).
-		Scan(&app.ID, &app.Name, &app.Description, &app.GitHash, &app.IPPort, &app.Endpoint, &app.Version, &app.WorkspaceID, &app.InputSchema, &app.OutputSchema)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusNotFound)
-		return
-	}
-	json.NewEncoder(w).Encode(app)
-}
-
-func updateAppRole(w http.ResponseWriter, r *http.Request) {
-	params := mux.Vars(r)
-	var role AppRole
-	if err := json.NewDecoder(r.Body).Decode(&role); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	_, err := db.Exec("UPDATE app_roles SET user_id = ?, role = ?, app_id = ? WHERE id = ?",
-		role.UserID, role.Role, role.AppID, params["id"])
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	json.NewEncoder(w).Encode(role)
-}
-
-func updateWorkspace(w http.ResponseWriter, r *http.Request) {
-	params := mux.Vars(r)
-	var workspace Workspace
-	if err := json.NewDecoder(r.Body).Decode(&workspace); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	_, err := db.Exec("UPDATE workspaces SET name = ?, user_id = ? WHERE id = ?",
-		workspace.Name, workspace.UserID, params["id"])
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	json.NewEncoder(w).Encode(workspace)
-}
-
-func deleteWorkspace(w http.ResponseWriter, r *http.Request) {
-	params := mux.Vars(r)
-
-	// Get the workspace's IPs before deleting
-	var ips string
-	err := db.QueryRow("SELECT ips FROM workspaces WHERE id = ?", params["id"]).Scan(&ips)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusNotFound)
-		return
-	}
-
-	// Delete the workspace
-	_, err = db.Exec("DELETE FROM workspaces WHERE id = ?", params["id"])
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	// Release the IPs
-	for _, ip := range strings.Split(ips, ",") {
-		ipPool.ReleaseIP(ip)
-	}
-
-	w.WriteHeader(http.StatusNoContent)
-}
-
 func getWorkspace(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 	var workspace Workspace
@@ -455,37 +497,6 @@ func getWorkspace(w http.ResponseWriter, r *http.Request) {
 	}
 	workspace.IPs = strings.Split(ips, ",")
 	json.NewEncoder(w).Encode(workspace)
-}
-
-func createApp(w http.ResponseWriter, r *http.Request) {
-	var app App
-	if err := json.NewDecoder(r.Body).Decode(&app); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	result, err := db.Exec("INSERT INTO apps (name, description, git_hash, ip_port, endpoint, version, workspace_id, input_schema, output_schema) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-		app.Name, app.Description, app.GitHash, app.IPPort, app.Endpoint, app.Version, app.WorkspaceID, app.InputSchema, app.OutputSchema)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	id, _ := result.LastInsertId()
-	app.ID = int(id)
-
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(app)
-}
-
-func deleteApp(w http.ResponseWriter, r *http.Request) {
-	params := mux.Vars(r)
-	_, err := db.Exec("DELETE FROM apps WHERE id = ?", params["id"])
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	w.WriteHeader(http.StatusNoContent)
 }
 
 func getAppRoles(w http.ResponseWriter, r *http.Request) {
@@ -507,125 +518,6 @@ func getAppRoles(w http.ResponseWriter, r *http.Request) {
 	}
 
 	json.NewEncoder(w).Encode(roles)
-}
-
-func createWorkspace(w http.ResponseWriter, r *http.Request) {
-	var workspace Workspace
-	if err := json.NewDecoder(r.Body).Decode(&workspace); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	workspace.Subdomain = generateSubdomain()
-	ip, err := ipPool.AllocateIP()
-	if err != nil {
-		http.Error(w, "Failed to allocate IP", http.StatusInternalServerError)
-		return
-	}
-	workspace.IPs = []string{ip}
-
-	result, err := db.Exec("INSERT INTO workspaces (name, user_id, subdomain, ips) VALUES (?, ?, ?, ?)",
-		workspace.Name, workspace.UserID, workspace.Subdomain, strings.Join(workspace.IPs, ","))
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	id, _ := result.LastInsertId()
-	workspace.ID = int(id)
-
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(workspace)
-}
-
-func init() {
-	rand.Seed(time.Now().UnixNano())
-	subdomains = make(map[string]bool)
-}
-
-func NewIPPool() *IPPool {
-	pool := &IPPool{
-		available: make([]net.IP, 0),
-		inUse:     make(map[string]bool),
-	}
-
-	// Generate IPs for 10.0.0.0/16 and 172.16.0.0/16
-	for i := 0; i <= 255; i++ {
-		for j := 0; j <= 255; j++ {
-			pool.available = append(pool.available, net.IPv4(10, 0, byte(i), byte(j)))
-			pool.available = append(pool.available, net.IPv4(172, 16, byte(i), byte(j)))
-		}
-	}
-
-	return pool
-}
-
-func getApps(w http.ResponseWriter, r *http.Request) {
-	rows, err := db.Query("SELECT id, name, description, git_hash, ip_port, endpoint, version, workspace_id, input_schema, output_schema FROM apps")
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	defer rows.Close()
-
-	apps := []App{}
-	for rows.Next() {
-		var a App
-		if err := rows.Scan(&a.ID, &a.Name, &a.Description, &a.GitHash, &a.IPPort, &a.Endpoint, &a.Version, &a.WorkspaceID, &a.InputSchema, &a.OutputSchema); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		apps = append(apps, a)
-	}
-
-	json.NewEncoder(w).Encode(apps)
-}
-
-func (p *IPPool) AllocateIP() (string, error) {
-	p.mutex.Lock()
-	defer p.mutex.Unlock()
-
-	if len(p.available) == 0 {
-		return "", fmt.Errorf("no available IPs")
-	}
-
-	ip := p.available[0]
-	p.available = p.available[1:]
-	ipStr := ip.String()
-	p.inUse[ipStr] = true
-
-	return ipStr, nil
-}
-
-func deleteAppRole(w http.ResponseWriter, r *http.Request) {
-	params := mux.Vars(r)
-	_, err := db.Exec("DELETE FROM app_roles WHERE id = ?", params["id"])
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	w.WriteHeader(http.StatusNoContent)
-}
-
-func getUsers(w http.ResponseWriter, r *http.Request) {
-	rows, err := db.Query("SELECT id, username FROM users")
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	defer rows.Close()
-
-	users := []User{}
-	for rows.Next() {
-		var u User
-		if err := rows.Scan(&u.ID, &u.Username); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		users = append(users, u)
-	}
-
-	json.NewEncoder(w).Encode(users)
 }
 
 func main() {
@@ -673,23 +565,131 @@ func main() {
 	log.Fatal(http.ListenAndServe(":8080", r))
 }
 
-func createAppRole(w http.ResponseWriter, r *http.Request) {
+func deleteWorkspaceRole(w http.ResponseWriter, r *http.Request) {
+	params := mux.Vars(r)
+	_, err := db.Exec("DELETE FROM workspace_roles WHERE id = ?", params["id"])
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func getUser(w http.ResponseWriter, r *http.Request) {
+	params := mux.Vars(r)
+	var user User
+	err := db.QueryRow("SELECT id, username FROM users WHERE id = ?", params["id"]).Scan(&user.ID, &user.Username)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+	json.NewEncoder(w).Encode(user)
+}
+
+func updateWorkspaceRole(w http.ResponseWriter, r *http.Request) {
+	params := mux.Vars(r)
+	var role WorkspaceRole
+	if err := json.NewDecoder(r.Body).Decode(&role); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	_, err := db.Exec("UPDATE workspace_roles SET user_id = ?, role = ?, workspace_id = ? WHERE id = ?",
+		role.UserID, role.Role, role.WorkspaceID, params["id"])
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	json.NewEncoder(w).Encode(role)
+}
+
+func deleteUser(w http.ResponseWriter, r *http.Request) {
+	params := mux.Vars(r)
+	_, err := db.Exec("DELETE FROM users WHERE id = ?", params["id"])
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func updateAppRole(w http.ResponseWriter, r *http.Request) {
+	params := mux.Vars(r)
 	var role AppRole
 	if err := json.NewDecoder(r.Body).Decode(&role); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	result, err := db.Exec("INSERT INTO app_roles (user_id, role, app_id) VALUES (?, ?, ?)",
-		role.UserID, role.Role, role.AppID)
+	_, err := db.Exec("UPDATE app_roles SET user_id = ?, role = ?, app_id = ? WHERE id = ?",
+		role.UserID, role.Role, role.AppID, params["id"])
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	json.NewEncoder(w).Encode(role)
+}
+
+func deleteApp(w http.ResponseWriter, r *http.Request) {
+	params := mux.Vars(r)
+	_, err := db.Exec("DELETE FROM apps WHERE id = ?", params["id"])
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func getWorkspaces(w http.ResponseWriter, r *http.Request) {
+	rows, err := db.Query("SELECT id, name, user_id, subdomain, ips FROM workspaces")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	workspaces := []Workspace{}
+	for rows.Next() {
+		var ws Workspace
+		var ips string
+		if err := rows.Scan(&ws.ID, &ws.Name, &ws.UserID, &ws.Subdomain, &ips); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		ws.IPs = strings.Split(ips, ",")
+		workspaces = append(workspaces, ws)
+	}
+
+	json.NewEncoder(w).Encode(workspaces)
+}
+
+func createWorkspace(w http.ResponseWriter, r *http.Request) {
+	var workspace Workspace
+	if err := json.NewDecoder(r.Body).Decode(&workspace); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	workspace.Subdomain = generateSubdomain()
+	ip, err := ipPool.AllocateIP()
+	if err != nil {
+		http.Error(w, "Failed to allocate IP", http.StatusInternalServerError)
+		return
+	}
+	workspace.IPs = []string{ip}
+
+	result, err := db.Exec("INSERT INTO workspaces (name, user_id, subdomain, ips) VALUES (?, ?, ?, ?)",
+		workspace.Name, workspace.UserID, workspace.Subdomain, strings.Join(workspace.IPs, ","))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	id, _ := result.LastInsertId()
-	role.ID = int(id)
+	workspace.ID = int(id)
 
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(role)
+	json.NewEncoder(w).Encode(workspace)
 }
