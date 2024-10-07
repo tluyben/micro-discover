@@ -1,160 +1,92 @@
-# 🚀 Role Service
+# 🎭 Role Service
 
-The Role Service manages user roles and permissions within the micro-discover system.
+The Role Service manages user roles within the micro-discover ecosystem. Roles are assigned per app or per workspace and are associated with specific users.
 
-## 🔑 Endpoints
+## 📊 Role Types
 
-### 1. Create Role
+- **Workspace Roles**: Roles that apply to an entire workspace
+- **App Roles**: Roles that apply to a specific app within a workspace
 
-**POST** `/roles`
+## 🔐 Available Roles
 
-Creates a new role.
+### Workspace Roles
+- Admin: Full control over the workspace
+- Member: Basic access to the workspace
 
-**Request Body:**
-```json
-{
-  "name": "developer",
-  "permissions": ["read", "write", "execute"]
-}
-```
+### App Roles
+- Developer: Can modify and deploy the app
+- User: Can use the app
 
-**Response:**
-```json
-{
-  "id": 1,
-  "name": "developer",
-  "permissions": ["read", "write", "execute"],
-  "created_at": "2023-06-15T10:30:00Z"
-}
-```
+## 🛠️ Endpoints
 
-### 2. Get Role
+### Workspace Roles
 
-**GET** `/roles/{id}`
-
-Retrieves a specific role by ID.
-
-**Response:**
-```json
-{
-  "id": 1,
-  "name": "developer",
-  "permissions": ["read", "write", "execute"],
-  "created_at": "2023-06-15T10:30:00Z",
-  "updated_at": "2023-06-15T10:30:00Z"
-}
-```
-
-### 3. Update Role
-
-**PUT** `/roles/{id}`
-
-Updates an existing role.
-
-**Request Body:**
-```json
-{
-  "name": "senior_developer",
-  "permissions": ["read", "write", "execute", "deploy"]
-}
-```
-
-**Response:**
-```json
-{
-  "id": 1,
-  "name": "senior_developer",
-  "permissions": ["read", "write", "execute", "deploy"],
-  "updated_at": "2023-06-15T11:00:00Z"
-}
-```
-
-### 4. Delete Role
-
-**DELETE** `/roles/{id}`
-
-Deletes a role.
-
-**Response:** HTTP 204 No Content
-
-### 5. List Roles
-
-**GET** `/roles`
-
-Retrieves a list of all roles.
-
-**Response:**
-```json
-[
+#### Create Workspace Role
+- **POST** `/workspace-roles`
+- Body:
+  ```json
   {
-    "id": 1,
-    "name": "senior_developer",
-    "permissions": ["read", "write", "execute", "deploy"]
-  },
-  {
-    "id": 2,
-    "name": "junior_developer",
-    "permissions": ["read", "write"]
+    "user_id": 1,
+    "role": "admin",
+    "workspace_id": 1
   }
-]
-```
+  ```
 
-### 6. Assign Role to User
+#### Get Workspace Roles
+- **GET** `/workspace-roles`
 
-**POST** `/users/{userId}/roles`
+#### Update Workspace Role
+- **PUT** `/workspace-roles/{id}`
+- Body:
+  ```json
+  {
+    "user_id": 1,
+    "role": "member",
+    "workspace_id": 1
+  }
+  ```
 
-Assigns a role to a user.
+#### Delete Workspace Role
+- **DELETE** `/workspace-roles/{id}`
 
-**Request Body:**
-```json
-{
-  "role_id": 1
-}
-```
+### App Roles
 
-**Response:**
-```json
-{
-  "user_id": 123,
-  "role_id": 1,
-  "assigned_at": "2023-06-15T12:00:00Z"
-}
-```
+#### Create App Role
+- **POST** `/app-roles`
+- Body:
+  ```json
+  {
+    "user_id": 1,
+    "role": "developer",
+    "app_id": 1
+  }
+  ```
 
-### 7. Remove Role from User
+#### Get App Roles
+- **GET** `/app-roles`
 
-**DELETE** `/users/{userId}/roles/{roleId}`
+#### Update App Role
+- **PUT** `/app-roles/{id}`
+- Body:
+  ```json
+  {
+    "user_id": 1,
+    "role": "user",
+    "app_id": 1
+  }
+  ```
 
-Removes a role from a user.
+#### Delete App Role
+- **DELETE** `/app-roles/{id}`
 
-**Response:** HTTP 204 No Content
+## 🔗 Integration
 
-## 📊 Data Models
+The Role Service integrates closely with the User Service and Workspace Service to ensure proper access control and permissions management across the micro-discover platform.
 
-### Role
-- `id`: int
-- `name`: string
-- `permissions`: string[]
-- `created_at`: datetime
-- `updated_at`: datetime
+## 🚀 Future Enhancements
 
-### UserRole
-- `user_id`: int
-- `role_id`: int
-- `assigned_at`: datetime
+- Role inheritance
+- Custom role definitions
+- Time-based role assignments
 
-## 🔒 Authentication
-
-All endpoints require a valid JWT token in the Authorization header.
-
-## 🚦 Rate Limiting
-
-API requests are limited to 100 requests per minute per API key.
-
-## 📝 Notes
-
-- Role names must be unique.
-- Deleting a role will automatically remove it from all users who have been assigned that role.
-- The 'admin' role is reserved and cannot be modified or deleted through the API.
-
-🎉 Happy role managing!
+Remember to always use proper authentication and authorization when accessing these endpoints to maintain the security of your micro-discover deployment! 🔒👨‍💻👩‍💻
