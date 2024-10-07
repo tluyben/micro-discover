@@ -2,10 +2,8 @@ package main
 
 import (
 	"bytes"
-	"database/sql"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -99,10 +97,7 @@ func TestUpdateApp(t *testing.T) {
 	}
 }
 
-func _setUpTestEnvironment() {
-	db = _initTestDB()
-	ipPool = NewIPPool()
-}
+
 
 func TestUpdateWorkspace(t *testing.T) {
 	clearDatabase()
@@ -294,48 +289,7 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
-func _initTestDB() *sql.DB {
-	os.Remove("./testdiscovery.db")
 
-	db, err := sql.Open("sqlite3", "./testdiscovery.db")
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	_, err = db.Exec(`
-		CREATE TABLE users (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			username TEXT NOT NULL UNIQUE,
-			password TEXT NOT NULL
-		);
-		CREATE TABLE workspaces (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			name TEXT NOT NULL,
-			user_id INTEGER,
-			subdomain TEXT NOT NULL UNIQUE,
-			ips TEXT NOT NULL,
-			FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
-		);
-		CREATE TABLE apps (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			name TEXT NOT NULL,
-			description TEXT,
-			git_hash TEXT,
-			ip_port TEXT NOT NULL,
-			endpoint TEXT,
-			version TEXT,
-			workspace_id INTEGER,
-			input_schema TEXT,
-			output_schema TEXT,
-			FOREIGN KEY(workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE
-		);
-	`)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	return db
-}
 
 func TestGetApps(t *testing.T) {
 	clearDatabase()
