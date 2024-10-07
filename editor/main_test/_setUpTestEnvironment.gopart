@@ -1,5 +1,0 @@
-func _setUpTestEnvironment() {
-	db = _initTestDB()
-	ipPool = NewIPPool()
-}
-

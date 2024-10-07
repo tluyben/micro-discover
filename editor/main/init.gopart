@@ -1,5 +1,0 @@
-func init() {
-	rand.Seed(time.Now().UnixNano())
-	subdomains = make(map[string]bool)
-}
-

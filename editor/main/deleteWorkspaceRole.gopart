@@ -1,9 +1,0 @@
-func deleteWorkspaceRole(w http.ResponseWriter, r *http.Request) {
-	params := mux.Vars(r)
-	_, err := db.Exec("DELETE FROM workspace_roles WHERE id = ?", params["id"])
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	w.WriteHeader(http.StatusNoContent)
-}
